@@ -1,0 +1,6 @@
+node_modules/
+.env
+banco_os.json
+whatsapp_os_session/
+dist/
+.wwebjs_cache/

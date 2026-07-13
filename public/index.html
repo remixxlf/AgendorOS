@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Gestor OS Premium</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+    :root {
+      --bg-dark: #111111;
+      --bg-panel: #1A1A1A;
+      --bg-elevated: #252525;
+      --bg-input: #151515;
+      
+      --accent: #6DEAED;
+      --accent-hover: #58D1D4;
+      --accent-dim: rgba(109, 234, 237, 0.1);
+      --accent-glow: rgba(109, 234, 237, 0.25);
+      
+      --text-primary: #FFFFFF;
+      --text-secondary: #A0A0A0;
+      --text-muted: #666666;
+      --text-on-accent: #000000;
+      
+      --border: #333333;
+      --border-hover: #444444;
+      
+      --success: #4CAF50;
+      --warning: #FFC107;
+      --danger: #FF6B6B;
+
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+      --radius-full: 9999px;
+
+      --transition-fast: 0.2s ease;
+      --transition-smooth: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg-dark);
+      color: var(--text-primary);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Layout */
+    .app-layout {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      min-height: 100vh;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      background: var(--bg-panel);
+      border-right: 1px solid var(--border);
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .sidebar-brand {
+      margin-bottom: 40px;
+    }
+    .brand-icon {
+      font-size: 2rem;
+      margin-bottom: 10px;
+      display: inline-block;
+      text-shadow: 0 0 15px var(--accent-glow);
+    }
+    .sidebar-brand h1 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 4px;
+    }
+    .brand-sub { font-size: 0.75rem; color: var(--accent); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+
+    .nav-label { font-size: 0.7rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px; }
+    
+    .sidebar-nav { display: flex; flex-direction: column; gap: 8px; flex: 1; }
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      border-radius: var(--radius-sm);
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-weight: 500;
+      font-size: 0.9rem;
+      transition: all var(--transition-fast);
+      cursor: pointer;
+      background: transparent;
+      border: none;
+      width: 100%;
+      text-align: left;
+    }
+    .nav-item:hover { color: var(--text-primary); background: var(--bg-elevated); }
+    .nav-item.active { background: var(--accent-dim); color: var(--accent); font-weight: 600; }
+    .nav-icon { font-size: 1.1rem; }
+
+    .sidebar-status {
+      margin-top: auto;
+      padding-top: 24px;
+      border-top: 1px solid var(--border);
+    }
+    .status-dot-container { display: flex; align-items: center; gap: 8px; }
+    .status-dot {
+      width: 10px; height: 10px; border-radius: var(--radius-full); background: var(--text-muted);
+      box-shadow: 0 0 0 3px rgba(255,255,255,0.05); transition: background 0.3s;
+    }
+    .status-dot.online { background: var(--accent); box-shadow: 0 0 0 4px var(--accent-dim), 0 0 12px var(--accent-glow); }
+    .status-dot.error { background: var(--danger); box-shadow: 0 0 0 4px rgba(255, 107, 107, 0.1); }
+    .status-text { font-size: 0.8rem; color: var(--text-secondary); font-weight: 500; }
+
+    /* Content Area */
+    .content { padding: 40px; display: flex; flex-direction: column; gap: 24px; }
+    
+    .content-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 8px; }
+    .content-header h2 { font-size: 1.8rem; font-weight: 700; letter-spacing: -0.02em; }
+    .header-actions { display: flex; gap: 12px; }
+
+    .btn {
+      padding: 10px 18px; border-radius: var(--radius-sm); font-family: 'Inter', sans-serif;
+      font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: all var(--transition-fast); border: none; outline: none;
+    }
+    .btn-primary { background: var(--accent); color: var(--text-on-accent); box-shadow: 0 4px 12px var(--accent-glow); }
+    .btn-primary:hover { background: var(--accent-hover); transform: translateY(-1px); box-shadow: 0 6px 16px var(--accent-glow); }
+    .btn-secondary { background: var(--bg-elevated); color: var(--text-primary); border: 1px solid var(--border); }
+    .btn-secondary:hover { border-color: var(--border-hover); background: var(--border); }
+
+    /* Kanban Board */
+    .kanban-board {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; align-items: start;
+    }
+    .kanban-col {
+      background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-md);
+      padding: 16px; display: flex; flex-direction: column; gap: 16px; min-height: 400px;
+    }
+    .kanban-col-header {
+      display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 1px solid var(--border);
+    }
+    .kanban-col-title { font-size: 0.95rem; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+    .kanban-badge { background: var(--bg-elevated); color: var(--text-secondary); padding: 2px 8px; border-radius: var(--radius-full); font-size: 0.75rem; font-weight: 700; }
+
+    /* Cards */
+    .os-card {
+      background: var(--bg-elevated); border: 1px solid var(--border); border-radius: var(--radius-sm);
+      padding: 16px; cursor: pointer; transition: all var(--transition-fast); position: relative;
+    }
+    .os-card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+    .os-id { font-size: 0.75rem; color: var(--accent); font-weight: 700; margin-bottom: 4px; }
+    .os-equipamento { font-size: 1.05rem; font-weight: 600; margin-bottom: 8px; color: var(--text-primary); }
+    .os-cliente { font-size: 0.8rem; color: var(--text-secondary); display: flex; align-items: center; gap: 6px; margin-bottom: 12px; }
+    .os-actions { display: flex; gap: 8px; border-top: 1px dashed var(--border); padding-top: 12px; margin-top: 12px; }
+    .btn-action { flex: 1; padding: 6px 0; font-size: 0.75rem; border-radius: 4px; border: none; cursor: pointer; font-weight: 600; transition: background 0.2s; }
+    .btn-action.next { background: var(--accent-dim); color: var(--accent); }
+    .btn-action.next:hover { background: var(--accent); color: var(--text-on-accent); }
+    
+    /* Stats */
+    .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+    .stat-card { background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 24px; position: relative; overflow: hidden; }
+    .stat-card.accent { background: linear-gradient(135deg, rgba(109,234,237,0.1) 0%, transparent 100%); border-color: rgba(109,234,237,0.3); }
+    .stat-label { font-size: 0.85rem; color: var(--text-secondary); font-weight: 600; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .stat-value { font-size: 2rem; font-weight: 800; color: var(--text-primary); letter-spacing: -0.02em; }
+    
+    /* Modals */
+    .modal-overlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.8); backdrop-filter: blur(4px);
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none; transition: opacity var(--transition-fast); z-index: 1000;
+    }
+    .modal-overlay.ativo { opacity: 1; pointer-events: auto; }
+    .modal-content {
+      background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-lg);
+      padding: 32px; width: 90%; max-width: 500px; position: relative;
+      transform: translateY(20px); transition: transform var(--transition-smooth);
+    }
+    .modal-overlay.ativo .modal-content { transform: translateY(0); }
+    
+    .form-group { margin-bottom: 20px; }
+    .form-group label { display: block; font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 8px; font-weight: 600; }
+    .form-group input, .form-group select, .form-group textarea {
+      width: 100%; padding: 12px 14px; background: var(--bg-input); border: 1px solid var(--border);
+      color: var(--text-primary); border-radius: var(--radius-sm); font-family: 'Inter', sans-serif;
+      font-size: 0.9rem; outline: none; transition: border-color var(--transition-fast);
+    }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: var(--accent); }
+    
+    .btn-fechar-modal { position: absolute; top: 20px; right: 20px; background: transparent; border: none; color: var(--text-muted); font-size: 1.2rem; cursor: pointer; }
+    .btn-fechar-modal:hover { color: var(--text-primary); }
+
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-icon">🔧</div>
+        <h1 id="tituloCabecalho">Assistência OS</h1>
+        <p class="brand-sub">Sistema de Gestão</p>
+      </div>
+      <nav class="sidebar-nav">
+        <div class="nav-label">Menu</div>
+        <button class="nav-item active" id="navOS">
+          <span class="nav-icon">📋</span> Ordens de Serviço
+        </button>
+        <button class="nav-item" id="navFinanceiro">
+          <span class="nav-icon">💎</span> Financeiro
+        </button>
+        <button class="nav-item" id="navEquipe">
+          <span class="nav-icon">👨‍💻</span> Equipe / Técnicos
+        </button>
+      </nav>
+      <div class="sidebar-status">
+        <div class="status-dot-container">
+          <span class="status-dot" id="statusDot"></span>
+          <span class="status-text" id="statusText">Iniciando...</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- CONTENT -->
+    <div class="content">
+      
+      <!-- SEÇÃO OS -->
+      <section id="sectionOS">
+        <div class="content-header">
+          <h2>Ordens de Serviço</h2>
+          <div class="header-actions">
+            <button class="btn btn-primary" id="btnNovaOS">+ Nova OS</button>
+          </div>
+        </div>
+        
+        <div class="kanban-board">
+          <div class="kanban-col">
+            <div class="kanban-col-header">
+              <div class="kanban-col-title">🟡 Recebido</div>
+              <div class="kanban-badge" id="badgeRecebido">0</div>
+            </div>
+            <div id="colRecebido" style="display: flex; flex-direction: column; gap: 12px;"></div>
+          </div>
+          
+          <div class="kanban-col">
+            <div class="kanban-col-header">
+              <div class="kanban-col-title">🔨 Em Bancada</div>
+              <div class="kanban-badge" id="badgeAndamento">0</div>
+            </div>
+            <div id="colAndamento" style="display: flex; flex-direction: column; gap: 12px;"></div>
+          </div>
+          
+          <div class="kanban-col">
+            <div class="kanban-col-header">
+              <div class="kanban-col-title">✅ Concluído</div>
+              <div class="kanban-badge" id="badgeConcluido">0</div>
+            </div>
+            <div id="colConcluido" style="display: flex; flex-direction: column; gap: 12px;"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SEÇÃO EQUIPE -->
+      <section id="sectionEquipe" style="display:none">
+        <div class="content-header">
+          <h2>Equipe de Técnicos</h2>
+        </div>
+        <div class="kanban-col" style="min-height: auto;">
+          <div class="form-group" style="display:flex; gap: 10px;">
+            <input type="text" id="inputNomeTecnico" placeholder="Nome do Técnico" />
+            <input type="number" id="inputComissaoTecnico" placeholder="Comissão %" style="width: 120px;" />
+            <button class="btn btn-primary" id="btnAddTecnico">Adicionar</button>
+          </div>
+          <ul id="listaTecnicos" style="list-style:none; display:flex; flex-direction:column; gap:8px;"></ul>
+        </div>
+      </section>
+
+      <!-- SEÇÃO FINANCEIRO -->
+      <section id="sectionFinanceiro" style="display:none">
+        <div class="content-header">
+          <h2>Dashboard Financeiro</h2>
+        </div>
+        <div class="stats-row" style="margin-bottom: 20px;">
+          <div class="stat-card accent">
+            <div class="stat-label">Faturamento</div>
+            <div class="stat-value" id="finFaturamento">R$ 0,00</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Lucro (Receitas - Despesas)</div>
+            <div class="stat-value" id="finLucro">R$ 0,00</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Despesas</div>
+            <div class="stat-value" id="finDespesas">R$ 0,00</div>
+          </div>
+        </div>
+        <div class="kanban-board">
+          <div class="kanban-col" style="grid-column: span 2;">
+            <canvas id="financeChart" style="width:100%; height:300px;"></canvas>
+          </div>
+          <div class="kanban-col">
+            <div class="kanban-col-title" style="margin-bottom: 12px;">💸 Lançar Despesa</div>
+            <div class="form-group">
+              <input type="text" id="inputDespesaDesc" placeholder="Descrição (ex: Peças, Luz)" />
+            </div>
+            <div class="form-group">
+              <input type="number" id="inputDespesaValor" placeholder="Valor (R$)" />
+            </div>
+            <button class="btn btn-secondary" style="width:100%" id="btnAddDespesa">Registrar Saída</button>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+
+  <!-- MODAL: NOVA OS -->
+  <div id="modalNovaOS" class="modal-overlay">
+    <div class="modal-content">
+      <button class="btn-fechar-modal" onclick="document.getElementById('modalNovaOS').classList.remove('ativo')">✕</button>
+      <h2 style="margin-bottom:20px;">+ Nova Ordem de Serviço</h2>
+      <div class="form-group">
+        <label>Nome do Cliente</label>
+        <input type="text" id="osNome" placeholder="Ex: João da Silva" />
+      </div>
+      <div class="form-group">
+        <label>WhatsApp do Cliente</label>
+        <input type="text" id="osZap" placeholder="Ex: 11999998888 (Sem formatação)" />
+      </div>
+      <div class="form-group">
+        <label>Equipamento / Aparelho</label>
+        <input type="text" id="osEqp" placeholder="Ex: iPhone 13 / TV Samsung 50" />
+      </div>
+      <div class="form-group">
+        <label>Problema Relatado</label>
+        <textarea id="osProb" rows="3" placeholder="Ex: Tela quebrada, não liga..."></textarea>
+      </div>
+      <button class="btn btn-primary" style="width:100%" id="btnSalvarNovaOS">Criar OS</button>
+    </div>
+  </div>
+
+  <!-- MODAL: CONCLUIR OS -->
+  <div id="modalConcluirOS" class="modal-overlay">
+    <div class="modal-content">
+      <button class="btn-fechar-modal" onclick="document.getElementById('modalConcluirOS').classList.remove('ativo')">✕</button>
+      <h2 style="margin-bottom:20px;">✅ Concluir OS</h2>
+      
+      <div class="form-group">
+        <label>O que foi feito? (Solução)</label>
+        <textarea id="concSolucao" rows="2" placeholder="Ex: Troca de tela e bateria"></textarea>
+      </div>
+      <div class="form-group">
+        <label>Técnico Responsável</label>
+        <select id="concTecnico"><option value="">Selecione...</option></select>
+      </div>
+      <div class="form-group">
+        <label>Valor Total Cobrado (R$)</label>
+        <input type="number" id="concValor" placeholder="Ex: 350.00" />
+      </div>
+      <p style="font-size:0.75rem; color:var(--text-secondary); margin-bottom:15px;">Ao confirmar, o cliente será avisado no WhatsApp que o aparelho está pronto.</p>
+      <button class="btn btn-primary" style="width:100%; background:var(--success)" id="btnSalvarConclusao">Finalizar e Faturar</button>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>

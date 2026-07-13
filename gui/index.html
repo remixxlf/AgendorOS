@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gestor de Agendamentos - Servidor</title>
+  <style>
+    /* Estilo inspirado na Apple (macOS) */
+    :root {
+      --bg-gradient: linear-gradient(135deg, #f5f7fa 0%, #e4e8f0 100%);
+      --sidebar-bg: rgba(255, 255, 255, 0.6);
+      --glass-border: rgba(255, 255, 255, 0.5);
+      --card-bg: rgba(255, 255, 255, 0.9);
+      --text-main: #1d1d1f;
+      --text-muted: #86868b;
+      --accent: #007aff;
+      --success: #34c759;
+      --warning: #ff9f0a;
+      --radius-lg: 14px;
+      --radius-sm: 10px;
+      --shadow-sm: 0 4px 12px rgba(0,0,0,0.05);
+      --shadow-lg: 0 10px 30px rgba(0,0,0,0.1);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg-gradient); 
+      color: var(--text-main); 
+      display: flex; 
+      height: 100vh;
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+    
+    /* Barra Lateral - Efeito Glassmorphism (Vibrancy) */
+    .sidebar { 
+      width: 280px; 
+      background: var(--sidebar-bg); 
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-right: 1px solid var(--glass-border); 
+      padding: 2.5rem 1.5rem; 
+      display: flex; 
+      flex-direction: column; 
+    }
+    
+    .sidebar h1 { 
+      font-size: 1.3rem; 
+      font-weight: 600; 
+      margin-bottom: 2.5rem; 
+      display: flex; 
+      align-items: center; 
+      gap: 8px;
+    }
+
+    /* Cards de Status estilo Widget do iOS/macOS */
+    .status-card { 
+      background: var(--card-bg); 
+      border-radius: var(--radius-sm); 
+      padding: 1rem; 
+      margin-bottom: 1rem; 
+      box-shadow: var(--shadow-sm);
+      border: 1px solid rgba(0,0,0,0.03);
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .status-card::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 4px;
+      background: var(--text-muted);
+      border-radius: 4px 0 0 4px;
+    }
+    .status-card.online::before { background: var(--success); }
+    .status-card.warning::before { background: var(--warning); }
+    
+    .status-card h3 { font-size: 0.8rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+    .status-card p { font-size: 0.95rem; font-weight: 500; word-break: break-word; }
+    
+    /* Botão estilo Apple */
+    .btn { 
+      background: var(--text-main); 
+      color: #fff; 
+      border: none; 
+      padding: 0.9rem; 
+      border-radius: var(--radius-sm); 
+      font-weight: 600; 
+      font-size: 0.95rem;
+      cursor: pointer; 
+      text-align: center; 
+      margin-top: auto; 
+      box-shadow: var(--shadow-sm);
+      transition: transform 0.1s, opacity 0.2s; 
+    }
+    .btn:active { transform: scale(0.97); opacity: 0.8; }
+    
+    /* Área Principal */
+    .main-content { 
+      flex: 1; 
+      display: flex; 
+      flex-direction: column; 
+      justify-content: center; 
+      align-items: center; 
+      padding: 3rem; 
+    }
+    
+    .main-content h2 { 
+      font-size: 1.8rem; 
+      font-weight: 700; 
+      margin-bottom: 1.5rem; 
+      letter-spacing: -0.5px;
+    }
+    
+    .main-content p.subtitle {
+      color: var(--text-muted);
+      margin-bottom: 2rem;
+      text-align: center;
+      max-width: 400px;
+      line-height: 1.5;
+    }
+    
+    /* Contêiner do QR Code */
+    .qr-container { 
+      background: var(--card-bg); 
+      padding: 2rem; 
+      border-radius: var(--radius-lg); 
+      box-shadow: var(--shadow-lg); 
+      display: flex; 
+      flex-direction: column; 
+      align-items: center; 
+      min-width: 320px; 
+      min-height: 320px; 
+      justify-content: center; 
+      text-align: center; 
+      border: 1px solid rgba(255,255,255,0.8);
+    }
+    
+    .qr-container img { 
+      width: 260px; 
+      height: 260px;
+      border-radius: 12px; 
+      display: none; 
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+    
+    .qr-container .placeholder { 
+      color: var(--text-muted); 
+      font-size: 1rem; 
+      font-weight: 500;
+    }
+    
+    /* Indicador de carregamento (Spinner simples) */
+    .spinner {
+      border: 3px solid rgba(0,0,0,0.05);
+      border-top: 3px solid var(--text-muted);
+      border-radius: 50%;
+      width: 30px;
+      height: 30px;
+      animation: spin 1s linear infinite;
+      margin-bottom: 15px;
+    }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+  </style>
+</head>
+<body>
+
+  <div class="sidebar">
+    <h1><span style="font-size: 1.8rem;">📅</span> <span id="app-nome">Agendamentos</span></h1>
+    
+    <div class="status-card" id="card-express">
+      <h3>Painel Web</h3>
+      <p id="txt-express">Iniciando...</p>
+    </div>
+    
+    <div class="status-card" id="card-tunnel">
+      <h3>Link Público</h3>
+      <p id="txt-tunnel">Gerando link...</p>
+    </div>
+    
+    <div class="status-card" id="card-bot">
+      <h3>Robô do WhatsApp</h3>
+      <p id="txt-bot">Conectando...</p>
+    </div>
+
+    <button class="btn" id="btn-painel">Abrir Painel de Agendamentos</button>
+  </div>
+
+  <div class="main-content">
+    <h2>Conexão WhatsApp</h2>
+    <p class="subtitle">Aponte a câmera do seu celular para o QR Code abaixo para conectar o robô ao WhatsApp.</p>
+    
+    <div class="qr-container">
+      <div class="spinner" id="qr-spinner"></div>
+      <img id="qr-image" src="" alt="QR Code" />
+      <p class="placeholder" id="qr-placeholder">Aguardando código...</p>
+    </div>
+  </div>
+
+  <script>
+    // 1. Pegamos as referências dos elementos HTML na tela usando seus IDs
+    const txtExpress = document.getElementById('txt-express');
+    const txtTunnel = document.getElementById('txt-tunnel');
+    const txtBot = document.getElementById('txt-bot');
+    
+    // Elementos da área do QR Code
+    const qrImage = document.getElementById('qr-image');
+    const qrPlaceholder = document.getElementById('qr-placeholder');
+    const qrSpinner = document.getElementById('qr-spinner');
+
+    // Cartões laterais para podermos mudar a cor quando estiver online
+    const cardExpress = document.getElementById('card-express');
+    const cardTunnel = document.getElementById('card-tunnel');
+    const cardBot = document.getElementById('card-bot');
+
+    // 2. Quando clicar no botão do painel, avisa o Node.js para abrir no navegador padrão
+    document.getElementById('btn-painel').addEventListener('click', () => {
+      window.electronAPI.openPanel();
+    });
+
+    // 3. Aqui estamos "escutando" as atualizações enviadas pelo backend (main.js/index.js)
+    window.electronAPI.onUpdateStatus((data) => {
+      if (data.type === 'express') {
+        txtExpress.textContent = data.msg;
+        cardExpress.classList.add('online');
+      } 
+      else if (data.type === 'tunnel') {
+        txtTunnel.textContent = data.msg;
+        cardTunnel.classList.add('online');
+      }
+      else if (data.type === 'nome-negocio') {
+        document.getElementById('app-nome').textContent = data.msg;
+        document.title = data.msg + ' - Servidor';
+      }
+      else if (data.type === 'bot') {
+        txtBot.textContent = data.msg;
+        
+        // Se o status indicar que a sessão está iniciando, deixamos a cor amarela (warning)
+        if (data.msg.includes('Aguardando') || data.msg.includes('isLogged')) {
+          cardBot.classList.add('warning');
+        }
+        
+        // TRATAMENTO DA SESSÃO EXISTENTE:
+        // Se o evento ready (ou inChat/ONLINE) disparar, significa que o bot já tem sessão!
+        // A tela de loading "infinita" some, e não esperamos por um novo QR Code.
+        if (data.msg.includes('ONLINE') || data.msg.includes('inChat') || data.msg.includes('isLogged')) {
+            cardBot.classList.remove('warning');
+            cardBot.classList.add('online');
+            
+            // Oculta a imagem (caso existisse) e o circulo girando (spinner)
+            qrImage.style.display = 'none';
+            qrSpinner.style.display = 'none';
+            
+            // Troca o texto centralizando que está tudo pronto
+            qrPlaceholder.textContent = 'Sistema Conectado com Sucesso!';
+            qrPlaceholder.style.display = 'block';
+            qrPlaceholder.style.color = 'var(--success)';
+            
+            // Muda o subtítulo da página
+            document.querySelector('.subtitle').textContent = 'O robô já está autenticado e pronto para atender.';
+        }
+      }
+    });
+
+    // 4. Aqui nós recebemos, pelo IPC da nossa ponte, o evento 'qr-code'.
+    // A string base64 que o backend mandou já vem prontinha no formato Data URI.
+    window.electronAPI.onQRCode((base64) => {
+      console.log('Recebido evento de QR Code do Backend!'); // Ajuda no debug
+      
+      // Escondemos o texto de "Aguardando código" e o spinner girando
+      qrPlaceholder.style.display = 'none';
+      qrSpinner.style.display = 'none';
+      
+      // Mostramos a imagem preenchendo a tag <img> com o código recebido
+      qrImage.src = base64;
+      qrImage.style.display = 'block';
+    });
+  </script>
+</body>
+</html>
