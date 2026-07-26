@@ -6,7 +6,8 @@ const cors = require('cors');
 const qrcode = require('qrcode');
 const fs = require('fs');
 const path = require('path');
-const alasql = require('alasql');
+const sqlite3 = require('sqlite3');
+const { open } = require('sqlite');
 const { execSync } = require('child_process');
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const { app: electronApp } = require('electron');
@@ -60,33 +61,56 @@ module.exports = async function startApp(mainWindow) {
     };
 
     // =========================================================================
-    // 1. BANCO DE DADOS LOCAL (ALASQL + JSON)
+    // 1. BANCO DE DADOS LOCAL (SQLITE)
     // =========================================================================
     const appDataPath = electronApp.getPath('userData');
-    const DB_FILE = path.join(appDataPath, 'banco_os.json');
+    const DB_FILE = path.join(appDataPath, 'banco_os.sqlite');
+    const OLD_JSON_DB = path.join(appDataPath, 'banco_os.json');
 
-    alasql('CREATE TABLE IF NOT EXISTS ordens_servico (id INT AUTO_INCREMENT, cliente_nome STRING, cliente_telefone STRING, equipamento STRING, categoria STRING, problema STRING, solucao STRING, valor NUMBER, status STRING, tecnico_id INT, data_criacao STRING)');
-    alasql('CREATE TABLE IF NOT EXISTS tecnicos (id INT AUTO_INCREMENT, nome STRING, comissao INT)');
-    alasql('CREATE TABLE IF NOT EXISTS transacoes (id INT AUTO_INCREMENT, os_id INT, tipo STRING, valor NUMBER, data STRING, descricao STRING)');
-    alasql('CREATE TABLE IF NOT EXISTS configuracoes (id INT AUTO_INCREMENT, chave STRING UNIQUE, valor STRING)');
+    const db = await open({
+        filename: DB_FILE,
+        driver: sqlite3.Database
+    });
 
-    try {
-        if (fs.existsSync(DB_FILE)) {
-            const data = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
-            if (data.ordens_servico) alasql.tables.ordens_servico.data = data.ordens_servico;
-            if (data.tecnicos) alasql.tables.tecnicos.data = data.tecnicos;
-            if (data.transacoes) alasql.tables.transacoes.data = data.transacoes;
-            if (data.configuracoes) alasql.tables.configuracoes.data = data.configuracoes;
+    await db.exec(`
+        CREATE TABLE IF NOT EXISTS ordens_servico (id INTEGER PRIMARY KEY AUTOINCREMENT, cliente_nome TEXT, cliente_telefone TEXT, equipamento TEXT, categoria TEXT, problema TEXT, solucao TEXT, valor REAL, status TEXT, tecnico_id INTEGER, data_criacao TEXT);
+        CREATE TABLE IF NOT EXISTS tecnicos (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT, comissao INTEGER);
+        CREATE TABLE IF NOT EXISTS transacoes (id INTEGER PRIMARY KEY AUTOINCREMENT, os_id INTEGER, tipo TEXT, valor REAL, data TEXT, descricao TEXT);
+        CREATE TABLE IF NOT EXISTS configuracoes (id INTEGER PRIMARY KEY AUTOINCREMENT, chave TEXT UNIQUE, valor TEXT);
+    `);
 
-            if (data.ordens_servico && data.ordens_servico.length > 0) alasql.tables.ordens_servico.ident = Math.max(...data.ordens_servico.map(i => i.id));
-            if (data.tecnicos && data.tecnicos.length > 0) alasql.tables.tecnicos.ident = Math.max(...data.tecnicos.map(i => i.id));
-            if (data.transacoes && data.transacoes.length > 0) alasql.tables.transacoes.ident = Math.max(...data.transacoes.map(i => i.id));
-            if (data.configuracoes && data.configuracoes.length > 0) alasql.tables.configuracoes.ident = Math.max(...data.configuracoes.map(i => i.id));
+    // Migração de dados do arquivo antigo (JSON para SQLite)
+    if (fs.existsSync(OLD_JSON_DB)) {
+        try {
+            const data = JSON.parse(fs.readFileSync(OLD_JSON_DB, 'utf8'));
+            const countOS = await db.get('SELECT COUNT(*) as count FROM ordens_servico');
+            
+            if (countOS.count === 0 && data.ordens_servico && data.ordens_servico.length > 0) {
+                console.log("[MIGRAÇÃO] Migrando dados do JSON para SQLite...");
+                for (const os of data.ordens_servico) {
+                    await db.run('INSERT INTO ordens_servico (id, cliente_nome, cliente_telefone, equipamento, categoria, problema, solucao, valor, status, tecnico_id, data_criacao) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [os.id, os.cliente_nome, os.cliente_telefone, os.equipamento, os.categoria, os.problema, os.solucao, os.valor, os.status, os.tecnico_id, os.data_criacao]);
+                }
+                for (const t of (data.tecnicos || [])) {
+                    await db.run('INSERT INTO tecnicos (id, nome, comissao) VALUES (?, ?, ?)', [t.id, t.nome, t.comissao]);
+                }
+                for (const tr of (data.transacoes || [])) {
+                    await db.run('INSERT INTO transacoes (id, os_id, tipo, valor, data, descricao) VALUES (?, ?, ?, ?, ?, ?)', [tr.id, tr.os_id, tr.tipo, tr.valor, tr.data, tr.descricao]);
+                }
+                for (const cfg of (data.configuracoes || [])) {
+                    await db.run('INSERT INTO configuracoes (id, chave, valor) VALUES (?, ?, ?)', [cfg.id, cfg.chave, cfg.valor]);
+                }
+                // Backup e renomeia
+                fs.renameSync(OLD_JSON_DB, OLD_JSON_DB + '.bkp');
+                console.log("[MIGRAÇÃO] Concluída com sucesso! Backup salvo em .json.bkp");
+            }
+        } catch (e) {
+            console.error("Erro na migração do banco JSON:", e);
         }
-    } catch (e) { console.error("Erro ao carregar banco JSON:", e); }
+    }
 
-    if (alasql.tables.configuracoes.data.length === 0) {
-        alasql("INSERT INTO configuracoes (chave, valor) VALUES ('nome_negocio', 'Minha Assistência')");
+    const confResult = await db.get("SELECT COUNT(*) as c FROM configuracoes");
+    if (confResult.c === 0) {
+        await db.run("INSERT INTO configuracoes (chave, valor) VALUES ('nome_negocio', 'Minha Assistência')");
     }
 
     const configDefaults = {
@@ -106,24 +130,15 @@ module.exports = async function startApp(mainWindow) {
         'msg_erro_os_nao_encontrada': '❌ Não encontrei a OS *#{os_id}*. Verifique o número e tente novamente ou digite *Menu*.',
     };
     for (const [chave, valor] of Object.entries(configDefaults)) {
-        if (!alasql('SELECT * FROM configuracoes WHERE chave = ?', [chave])[0]) {
-            alasql("INSERT INTO configuracoes (chave, valor) VALUES (?, ?)", [chave, valor]);
+        const row = await db.get('SELECT * FROM configuracoes WHERE chave = ?', [chave]);
+        if (!row) {
+            await db.run("INSERT INTO configuracoes (chave, valor) VALUES (?, ?)", [chave, valor]);
         }
     }
 
-    const saveDb = () => {
-        fs.writeFileSync(DB_FILE, JSON.stringify({
-            ordens_servico: alasql.tables.ordens_servico.data,
-            tecnicos: alasql.tables.tecnicos.data,
-            transacoes: alasql.tables.transacoes.data,
-            configuracoes: alasql.tables.configuracoes.data
-        }, null, 2));
-    };
-    saveDb();
-
-    const dbAll = async (sql, params = []) => alasql(sql, params);
-    const dbRun = async (sql, params = []) => { alasql(sql, params); saveDb(); };
-    const dbGet = async (sql, params = []) => alasql(sql, params)[0];
+    const dbAll = async (sql, params = []) => await db.all(sql, params);
+    const dbRun = async (sql, params = []) => await db.run(sql, params);
+    const dbGet = async (sql, params = []) => await db.get(sql, params);
 
     const getNextId = async (tableName) => {
         const rows = await dbAll(`SELECT MAX(id) as maxId FROM ${tableName}`);
