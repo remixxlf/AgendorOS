@@ -214,9 +214,14 @@
         <section id="relatorios-view" class="tab-content flex-col h-full overflow-y-auto p-6 md:p-10">
             <div class="flex justify-between items-center mb-8 shrink-0">
                 <h1 class="text-3xl font-bold text-slate-800">Lançamentos Financeiros</h1>
-                <button onclick="document.getElementById('modalNovaDespesa').classList.remove('hidden')" class="bg-rose-500 hover:bg-rose-600 text-white px-5 py-2.5 rounded-xl font-medium flex items-center gap-2 transition-transform active:scale-95 shadow-sm">
-                    <i class="ph-bold ph-minus"></i> Lançar Despesa
-                </button>
+                <div class="flex gap-3">
+                    <button onclick="document.getElementById('modalNovaReceita').classList.remove('hidden')" class="bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-2.5 rounded-xl font-medium flex items-center gap-2 transition-transform active:scale-95 shadow-sm">
+                        <i class="ph-bold ph-plus"></i> Receita Avulsa
+                    </button>
+                    <button onclick="document.getElementById('modalNovaDespesa').classList.remove('hidden')" class="bg-rose-500 hover:bg-rose-600 text-white px-5 py-2.5 rounded-xl font-medium flex items-center gap-2 transition-transform active:scale-95 shadow-sm">
+                        <i class="ph-bold ph-minus"></i> Lançar Despesa
+                    </button>
+                </div>
             </div>
             
             <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex flex-col shrink-0">
@@ -228,6 +233,7 @@
                                 <th class="px-6 py-4 font-semibold uppercase tracking-wider text-xs">Descrição</th>
                                 <th class="px-6 py-4 font-semibold uppercase tracking-wider text-xs">Tipo</th>
                                 <th class="px-6 py-4 font-semibold uppercase tracking-wider text-xs text-right">Valor (R$)</th>
+                                <th class="px-6 py-4 font-semibold uppercase tracking-wider text-xs text-center w-16">Ações</th>
                             </tr>
                         </thead>
                         <tbody id="tabela-transacoes" class="divide-y divide-slate-100">
@@ -242,24 +248,94 @@
         <section id="config-view" class="tab-content flex-col h-full overflow-y-auto p-6 md:p-10">
             <div class="mb-8 shrink-0">
                 <h1 class="text-3xl font-bold text-slate-800">Configurações</h1>
+                <p class="text-slate-500 mt-1 text-sm">Personalize as informações da sua loja e todas as mensagens do robô.</p>
             </div>
             
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 shrink-0 pb-10">
-                <!-- Geral -->
+            <div class="space-y-8 pb-10">
+                <!-- Card: Geral -->
                 <div class="bg-white rounded-2xl p-8 shadow-sm border border-slate-100/60">
                     <h2 class="text-xl font-bold text-slate-700 mb-6 flex items-center gap-2">
-                        <i class="ph-fill ph-storefront text-slate-400"></i> Informações da Loja
+                        <i class="ph-fill ph-storefront text-indigo-400"></i> Informações da Loja
+                    </h2>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">Nome da Assistência</label>
+                        <input type="text" id="config-nome-negocio" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 transition-all font-medium text-slate-700">
+                    </div>
+                </div>
+
+                <!-- Card: Notificações Ativas -->
+                <div class="bg-white rounded-2xl p-8 shadow-sm border border-slate-100/60">
+                    <h2 class="text-xl font-bold text-slate-700 mb-2 flex items-center gap-2">
+                        <i class="ph-fill ph-bell-ringing text-emerald-500"></i> Notificações Enviadas pelo Painel
+                    </h2>
+                    <p class="text-slate-400 text-xs mb-6">Variáveis disponíveis: <code class="bg-slate-100 px-1.5 py-0.5 rounded text-indigo-600">{nome}</code> <code class="bg-slate-100 px-1.5 py-0.5 rounded text-indigo-600">{equipamento}</code> <code class="bg-slate-100 px-1.5 py-0.5 rounded text-indigo-600">{os_id}</code> <code class="bg-slate-100 px-1.5 py-0.5 rounded text-indigo-600">{valor}</code></p>
+                    <div class="space-y-6">
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-2">📦 Aparelho entrou na Bancada</label>
+                            <textarea id="config-msg-bancada" rows="4" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 transition-all resize-none font-mono"></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-2">🎉 Aparelho Pronto / Concluído</label>
+                            <textarea id="config-msg-os-pronta" rows="4" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 transition-all resize-none font-mono"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card: Menu Receptivo -->
+                <div class="bg-white rounded-2xl p-8 shadow-sm border border-slate-100/60">
+                    <h2 class="text-xl font-bold text-slate-700 mb-2 flex items-center gap-2">
+                        <i class="ph-fill ph-chat-circle-dots text-indigo-500"></i> Menu de Atendimento (Receptivo)
+                    </h2>
+                    <p class="text-slate-400 text-xs mb-6">Variáveis disponíveis: <code class="bg-slate-100 px-1.5 py-0.5 rounded text-indigo-600">{nome}</code> <code class="bg-slate-100 px-1.5 py-0.5 rounded text-indigo-600">{os_id}</code> <code class="bg-slate-100 px-1.5 py-0.5 rounded text-indigo-600">{equipamento}</code> <code class="bg-slate-100 px-1.5 py-0.5 rounded text-indigo-600">{status}</code></p>
+                    <div class="space-y-6">
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-2">👋 Saudação inicial</label>
+                            <textarea id="config-msg-saudacao" rows="2" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 transition-all resize-none font-mono"></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-2">📋 Opções do Menu</label>
+                            <textarea id="config-msg-menu-opcoes" rows="4" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 transition-all resize-none font-mono"></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-2">🔍 Pedir número da OS</label>
+                            <textarea id="config-msg-pedir-os" rows="2" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 transition-all resize-none font-mono"></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-2">💬 Resposta do Status da OS</label>
+                            <textarea id="config-msg-os-status" rows="4" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 transition-all resize-none font-mono"></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-2">👨‍💻 Transferir para Atendente</label>
+                            <textarea id="config-msg-atendente" rows="2" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 transition-all resize-none font-mono"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card: Mensagens de Erro -->
+                <div class="bg-white rounded-2xl p-8 shadow-sm border border-slate-100/60">
+                    <h2 class="text-xl font-bold text-slate-700 mb-6 flex items-center gap-2">
+                        <i class="ph-fill ph-warning-circle text-amber-500"></i> Mensagens de Erro
                     </h2>
                     <div class="space-y-6">
                         <div>
-                            <label class="block text-sm font-semibold text-slate-700 mb-2">Nome da Assistência</label>
-                            <input type="text" id="config-nome-negocio" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 transition-all font-medium text-slate-700">
+                            <label class="block text-sm font-semibold text-slate-700 mb-2">⚠️ Opção inválida no Menu</label>
+                            <textarea id="config-msg-erro-opcao" rows="2" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 transition-all resize-none font-mono"></textarea>
                         </div>
-                        <button id="btnSalvarConfigGeral" class="bg-slate-800 hover:bg-slate-900 text-white px-5 py-3 rounded-xl font-medium w-full transition-colors">
-                            Salvar Alterações
-                        </button>
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-2">⚠️ Formato do número da OS inválido</label>
+                            <textarea id="config-msg-erro-formato" rows="2" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 transition-all resize-none font-mono"></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-2">❌ OS não encontrada <span class="text-indigo-400 text-xs font-normal">(use <code class="bg-slate-100 px-1 rounded">{os_id}</code>)</span></label>
+                            <textarea id="config-msg-erro-os" rows="2" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 transition-all resize-none font-mono"></textarea>
+                        </div>
                     </div>
                 </div>
+
+                <!-- Botão Salvar Global -->
+                <button id="btnSalvarConfigGeral" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-4 rounded-2xl font-bold text-lg transition-colors flex items-center justify-center gap-3 shadow-md shadow-indigo-100">
+                    <i class="ph-fill ph-floppy-disk text-xl"></i> Salvar Todas as Configurações
+                </button>
             </div>
         </section>
 
@@ -285,9 +361,20 @@
                         <input type="text" id="osZap" placeholder="Ex: 11999999999" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/30">
                     </div>
                 </div>
-                <div>
-                    <label class="block text-sm font-semibold text-slate-700 mb-1.5">Equipamento (Marca/Modelo) *</label>
-                    <input type="text" id="osEqp" placeholder="Ex: iPhone 12 Pro" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/30">
+                <div class="grid grid-cols-2 gap-5">
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1.5">Equipamento (Marca/Modelo) *</label>
+                        <input type="text" id="osEqp" placeholder="Ex: iPhone 12 Pro" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/30">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1.5">Categoria *</label>
+                        <select id="osCat" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/30">
+                            <option value="smartphone">📱 Smartphone</option>
+                            <option value="notebook">💻 Notebook</option>
+                            <option value="pc">🖥️ Desktop / PC</option>
+                            <option value="outros">🔌 Outros / Acessórios</option>
+                        </select>
+                    </div>
                 </div>
                 <div>
                     <label class="block text-sm font-semibold text-slate-700 mb-1.5">Defeito Relatado</label>
@@ -321,6 +408,10 @@
                     <label class="block text-sm font-semibold text-slate-700 mb-1.5">Valor Cobrado (R$) *</label>
                     <input type="number" step="0.01" id="concValor" class="w-full bg-emerald-50/50 border border-emerald-200 rounded-xl px-4 py-3 font-bold text-emerald-700 text-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/50">
                 </div>
+                <div class="flex items-center gap-3 pt-2">
+                    <input type="checkbox" id="concGerarFinanceiro" checked class="w-5 h-5 text-indigo-600 bg-slate-50 border-slate-300 rounded focus:ring-indigo-500 cursor-pointer">
+                    <label for="concGerarFinanceiro" class="text-sm font-semibold text-slate-700 cursor-pointer">Lançar valor no financeiro automaticamente (Faturar)</label>
+                </div>
             </div>
             <div class="px-8 py-5 bg-slate-50 border-t border-slate-100 flex justify-end gap-3 shrink-0">
                 <button onclick="document.getElementById('modalConcluirOS').classList.add('hidden')" class="px-5 py-2.5 font-semibold text-slate-600 hover:bg-slate-200 rounded-xl transition-colors">Cancelar</button>
@@ -349,6 +440,49 @@
             <div class="px-8 py-5 bg-slate-50 border-t border-slate-100 flex justify-end gap-3 shrink-0">
                 <button onclick="document.getElementById('modalNovaDespesa').classList.add('hidden')" class="px-5 py-2.5 font-semibold text-slate-600 hover:bg-slate-200 rounded-xl transition-colors">Cancelar</button>
                 <button id="btnAddDespesa" class="px-6 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded-xl transition-transform active:scale-95 shadow-sm">Lançar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Lançar Receita -->
+    <div id="modalNovaReceita" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-white rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden flex flex-col">
+            <div class="px-8 py-5 border-b border-slate-100 flex justify-between items-center bg-white shrink-0">
+                <h3 class="font-bold text-xl text-slate-800">Lançar Receita Avulsa</h3>
+                <button onclick="document.getElementById('modalNovaReceita').classList.add('hidden')" class="w-8 h-8 flex items-center justify-center bg-slate-100 text-slate-500 hover:bg-slate-200 rounded-full transition-colors"><i class="ph-bold ph-x"></i></button>
+            </div>
+            <div class="p-8 space-y-5">
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1.5">Descrição *</label>
+                    <input type="text" id="inputReceitaDesc" placeholder="Ex: Pagamento parcial OS #12" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/30">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1.5">Valor (R$) *</label>
+                    <input type="number" step="0.01" id="inputReceitaValor" class="w-full bg-emerald-50/50 border border-emerald-200 rounded-xl px-4 py-3 font-bold text-emerald-600 text-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/50">
+                </div>
+            </div>
+            <div class="px-8 py-5 bg-slate-50 border-t border-slate-100 flex justify-end gap-3 shrink-0">
+                <button onclick="document.getElementById('modalNovaReceita').classList.add('hidden')" class="px-5 py-2.5 font-semibold text-slate-600 hover:bg-slate-200 rounded-xl transition-colors">Cancelar</button>
+                <button id="btnAddReceita" class="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl transition-transform active:scale-95 shadow-sm">Lançar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Confirmar Exclusão -->
+    <div id="modalConfirmarExclusao" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-white rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden flex flex-col">
+            <div class="px-8 py-5 border-b border-slate-100 flex justify-between items-center bg-rose-50 shrink-0">
+                <h3 class="font-bold text-xl text-rose-600 flex items-center gap-2"><i class="ph-fill ph-warning-circle"></i> Atenção</h3>
+                <button onclick="document.getElementById('modalConfirmarExclusao').classList.add('hidden')" class="w-8 h-8 flex items-center justify-center bg-white text-slate-500 hover:bg-slate-100 rounded-full transition-colors shadow-sm"><i class="ph-bold ph-x"></i></button>
+            </div>
+            <div class="p-8 space-y-4">
+                <p class="text-slate-600">Você está prestes a excluir (estornar) este lançamento financeiro.</p>
+                <p class="text-slate-600 text-sm font-medium bg-slate-50 p-3 rounded-xl border border-slate-200">Isso não apaga a Ordem de Serviço, apenas retira o valor do caixa.</p>
+                <p class="text-slate-800 font-bold">Tem certeza?</p>
+            </div>
+            <div class="px-8 py-5 bg-slate-50 border-t border-slate-100 flex justify-end gap-3 shrink-0">
+                <button onclick="document.getElementById('modalConfirmarExclusao').classList.add('hidden')" class="px-5 py-2.5 font-semibold text-slate-600 hover:bg-slate-200 rounded-xl transition-colors">Cancelar</button>
+                <button id="btnConfirmarExclusaoTransacao" class="px-6 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded-xl transition-transform active:scale-95 shadow-sm">Sim, Excluir</button>
             </div>
         </div>
     </div>

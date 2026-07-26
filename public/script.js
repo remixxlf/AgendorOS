@@ -104,6 +104,11 @@ async function loadFinanceiroE_Dashboard() {
                             </span>
                         </td>
                         <td class="px-6 py-4 text-right font-bold ${color}">${sign} R$ ${parseFloat(t.valor).toFixed(2).replace('.', ',')}</td>
+                        <td class="px-6 py-4 text-center">
+                            <button onclick="deletarTransacao(${t.id})" class="text-slate-400 hover:text-rose-500 transition-colors bg-white hover:bg-rose-50 p-1.5 rounded-lg border border-transparent hover:border-rose-100 shadow-sm" title="Excluir Lançamento (Estorno)">
+                                <i class="ph-fill ph-trash text-base"></i>
+                            </button>
+                        </td>
                     </tr>
                 `;
             });
@@ -164,12 +169,12 @@ function renderWaffleChart(ordens) {
     let total = 0;
     
     ordens.forEach(o => {
-        if (o.status !== 'concluido') return; // só conta concluídos na receita (idealmente)
+        if (o.status !== 'concluido') return;
         total++;
-        const eq = (o.equipamento || '').toLowerCase();
-        if (eq.includes('iphone') || eq.includes('samsung') || eq.includes('motorola') || eq.includes('celular') || eq.includes('smartphone')) smart++;
-        else if (eq.includes('note') || eq.includes('macbook')) note++;
-        else if (eq.includes('pc') || eq.includes('computador')) pc++;
+        const cat = o.categoria || 'outros';
+        if (cat === 'smartphone') smart++;
+        else if (cat === 'notebook') note++;
+        else if (cat === 'pc') pc++;
         else outros++;
     });
 
@@ -231,6 +236,47 @@ document.getElementById('btnAddDespesa').addEventListener('click', async () => {
     document.getElementById('inputDespesaDesc').value = '';
     document.getElementById('inputDespesaValor').value = '';
     document.getElementById('modalNovaDespesa').classList.add('hidden');
+    loadFinanceiroE_Dashboard();
+});
+
+// Lançar Receita Avulsa
+document.getElementById('btnAddReceita').addEventListener('click', async () => {
+    const descricao = document.getElementById('inputReceitaDesc').value.trim();
+    const valor = document.getElementById('inputReceitaValor').value.trim();
+    if(!descricao || !valor) return;
+    
+    const data = new Date().toISOString().split('T')[0];
+    await fetch('/api/receitas', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ descricao, valor: parseFloat(valor.replace(',','.')), data })
+    });
+    
+    document.getElementById('inputReceitaDesc').value = '';
+    document.getElementById('inputReceitaValor').value = '';
+    document.getElementById('modalNovaReceita').classList.add('hidden');
+    loadFinanceiroE_Dashboard();
+});
+
+// Excluir Transação (Estorno)
+let transacaoIdParaExcluir = null;
+
+function deletarTransacao(id) {
+    transacaoIdParaExcluir = id;
+    document.getElementById('modalConfirmarExclusao').classList.remove('hidden');
+}
+
+document.getElementById('btnConfirmarExclusaoTransacao').addEventListener('click', async () => {
+    if(!transacaoIdParaExcluir) return;
+    const btn = document.getElementById('btnConfirmarExclusaoTransacao');
+    const txtOriginal = btn.innerHTML;
+    btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i> Excluindo...';
+    
+    await fetch(`/api/transacoes/${transacaoIdParaExcluir}`, { method: 'DELETE' });
+    
+    document.getElementById('modalConfirmarExclusao').classList.add('hidden');
+    btn.innerHTML = txtOriginal;
+    transacaoIdParaExcluir = null;
     loadFinanceiroE_Dashboard();
 });
 
@@ -324,6 +370,7 @@ document.getElementById('btnSalvarNovaOS').addEventListener('click', async () =>
         cliente_nome: document.getElementById('osNome').value.trim(),
         cliente_telefone: document.getElementById('osZap').value.trim(),
         equipamento: document.getElementById('osEqp').value.trim(),
+        categoria: document.getElementById('osCat').value,
         problema: document.getElementById('osProb').value.trim()
     };
     if(!data.cliente_nome || !data.equipamento) return alert('Preencha pelo menos Nome e Equipamento.');
@@ -377,23 +424,26 @@ document.getElementById('btnSalvarConclusao').addEventListener('click', async ()
     const solucao = document.getElementById('concSolucao').value.trim();
     const tecnico_id = document.getElementById('concTecnico').value;
     const valor = document.getElementById('concValor').value.trim();
+    const gerarFinanceiro = document.getElementById('concGerarFinanceiro').checked;
     
     if(!tecnico_id || !valor) return alert('Preencha Técnico e Valor.');
     
     const btn = document.getElementById('btnSalvarConclusao');
-    btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i> Faturando...';
+    btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i> Concluindo...';
     
     await fetch(`/api/os/${osAtualConcluir}/concluir`, {
         method: 'POST',
         headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ solucao, tecnico_id, valor: parseFloat(valor.replace(',','.')) })
+        body: JSON.stringify({ solucao, tecnico_id, valor: parseFloat(valor.replace(',','.')), gerar_financeiro: gerarFinanceiro })
     });
     
     document.getElementById('modalConcluirOS').classList.add('hidden');
     document.getElementById('concSolucao').value = '';
     document.getElementById('concValor').value = '';
+    document.getElementById('concGerarFinanceiro').checked = true; // resetar
     btn.innerHTML = 'Faturar';
     carregarOS();
+    loadFinanceiroE_Dashboard(); // Atualiza dashboard caso tenha gerado financeiro
 });
 
 // ==================== EQUIPE ====================
@@ -452,22 +502,57 @@ async function deletarTecnico(id) {
 // ==================== CONFIGURAÇÕES ====================
 async function loadConfig() {
     try {
-        const resNome = await fetch('/api/configuracoes/nome');
-        const dataNome = await resNome.json();
-        document.getElementById('config-nome-negocio').value = dataNome.nome;
-    } catch(e) {}
+        const res = await fetch('/api/configuracoes');
+        const cfg = await res.json();
+
+        // Loja
+        document.getElementById('config-nome-negocio').value = cfg['nome_negocio'] || '';
+
+        // Notificações Ativas
+        document.getElementById('config-msg-bancada').value = cfg['msg_bancada'] || '';
+        document.getElementById('config-msg-os-pronta').value = cfg['msg_os_pronta'] || '';
+
+        // Menu Receptivo
+        document.getElementById('config-msg-saudacao').value = cfg['msg_saudacao'] || '';
+        document.getElementById('config-msg-menu-opcoes').value = cfg['msg_menu_opcoes'] || '';
+        document.getElementById('config-msg-pedir-os').value = cfg['msg_pedir_os'] || '';
+        document.getElementById('config-msg-os-status').value = cfg['msg_os_status'] || '';
+        document.getElementById('config-msg-atendente').value = cfg['msg_atendente'] || '';
+
+        // Erros
+        document.getElementById('config-msg-erro-opcao').value = cfg['msg_erro_opcao_invalida'] || '';
+        document.getElementById('config-msg-erro-formato').value = cfg['msg_erro_formato_os'] || '';
+        document.getElementById('config-msg-erro-os').value = cfg['msg_erro_os_nao_encontrada'] || '';
+    } catch(e) { console.error(e); }
 }
 
 document.getElementById('btnSalvarConfigGeral').addEventListener('click', async () => {
-    const nome = document.getElementById('config-nome-negocio').value.trim();
     const btn = document.getElementById('btnSalvarConfigGeral');
-    btn.textContent = 'Salvando...';
-    await fetch('/api/configuracoes/nome', {
+    btn.innerHTML = '<i class="ph ph-spinner animate-spin text-xl"></i> Salvando...';
+
+    const payload = {
+        'nome_negocio':             document.getElementById('config-nome-negocio').value.trim(),
+        'msg_bancada':              document.getElementById('config-msg-bancada').value,
+        'msg_os_pronta':            document.getElementById('config-msg-os-pronta').value,
+        'msg_saudacao':             document.getElementById('config-msg-saudacao').value,
+        'msg_menu_opcoes':          document.getElementById('config-msg-menu-opcoes').value,
+        'msg_pedir_os':             document.getElementById('config-msg-pedir-os').value,
+        'msg_os_status':            document.getElementById('config-msg-os-status').value,
+        'msg_atendente':            document.getElementById('config-msg-atendente').value,
+        'msg_erro_opcao_invalida':  document.getElementById('config-msg-erro-opcao').value,
+        'msg_erro_formato_os':      document.getElementById('config-msg-erro-formato').value,
+        'msg_erro_os_nao_encontrada': document.getElementById('config-msg-erro-os').value,
+    };
+
+    await fetch('/api/configuracoes', {
         method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ nome })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
     });
-    setTimeout(() => { btn.textContent = 'Salvar Alterações'; }, 500);
+
+    setTimeout(() => {
+        btn.innerHTML = '<i class="ph-fill ph-floppy-disk text-xl"></i> Salvar Todas as Configurações';
+    }, 600);
 });
 
 // ==================== IMPRESSÃO ====================
