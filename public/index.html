@@ -1,376 +1,387 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <title>Gestor OS Premium</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestor OS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; color: #1e293b; }
+        .tab-content { display: none; }
+        .tab-content.active { display: flex; }
+        
+        /* Kanban Scrollbar */
+        .kanban-col::-webkit-scrollbar { width: 6px; }
+        .kanban-col::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 4px; }
+        
+        /* Waffle Chart grid */
+        .waffle-grid { display: grid; grid-template-columns: repeat(20, 1fr); gap: 4px; }
+        .waffle-cell { padding-bottom: 100%; border-radius: 2px; }
 
-    :root {
-      --bg-dark: #111111;
-      --bg-panel: #1A1A1A;
-      --bg-elevated: #252525;
-      --bg-input: #151515;
-      
-      --accent: #6DEAED;
-      --accent-hover: #58D1D4;
-      --accent-dim: rgba(109, 234, 237, 0.1);
-      --accent-glow: rgba(109, 234, 237, 0.25);
-      
-      --text-primary: #FFFFFF;
-      --text-secondary: #A0A0A0;
-      --text-muted: #666666;
-      --text-on-accent: #000000;
-      
-      --border: #333333;
-      --border-hover: #444444;
-      
-      --success: #4CAF50;
-      --warning: #FFC107;
-      --danger: #FF6B6B;
-
-      --radius-sm: 8px;
-      --radius-md: 14px;
-      --radius-lg: 20px;
-      --radius-full: 9999px;
-
-      --transition-fast: 0.2s ease;
-      --transition-smooth: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-
-    body {
-      font-family: 'Inter', sans-serif;
-      background-color: var(--bg-dark);
-      color: var(--text-primary);
-      min-height: 100vh;
-      overflow-x: hidden;
-    }
-
-    /* Layout */
-    .app-layout {
-      display: grid;
-      grid-template-columns: 280px 1fr;
-      min-height: 100vh;
-    }
-
-    /* Sidebar */
-    .sidebar {
-      background: var(--bg-panel);
-      border-right: 1px solid var(--border);
-      padding: 24px;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .sidebar-brand {
-      margin-bottom: 40px;
-    }
-    .brand-icon {
-      font-size: 2rem;
-      margin-bottom: 10px;
-      display: inline-block;
-      text-shadow: 0 0 15px var(--accent-glow);
-    }
-    .sidebar-brand h1 {
-      font-size: 1.25rem;
-      font-weight: 700;
-      letter-spacing: -0.02em;
-      margin-bottom: 4px;
-    }
-    .brand-sub { font-size: 0.75rem; color: var(--accent); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
-
-    .nav-label { font-size: 0.7rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px; }
-    
-    .sidebar-nav { display: flex; flex-direction: column; gap: 8px; flex: 1; }
-    .nav-item {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 12px 16px;
-      border-radius: var(--radius-sm);
-      color: var(--text-secondary);
-      text-decoration: none;
-      font-weight: 500;
-      font-size: 0.9rem;
-      transition: all var(--transition-fast);
-      cursor: pointer;
-      background: transparent;
-      border: none;
-      width: 100%;
-      text-align: left;
-    }
-    .nav-item:hover { color: var(--text-primary); background: var(--bg-elevated); }
-    .nav-item.active { background: var(--accent-dim); color: var(--accent); font-weight: 600; }
-    .nav-icon { font-size: 1.1rem; }
-
-    .sidebar-status {
-      margin-top: auto;
-      padding-top: 24px;
-      border-top: 1px solid var(--border);
-    }
-    .status-dot-container { display: flex; align-items: center; gap: 8px; }
-    .status-dot {
-      width: 10px; height: 10px; border-radius: var(--radius-full); background: var(--text-muted);
-      box-shadow: 0 0 0 3px rgba(255,255,255,0.05); transition: background 0.3s;
-    }
-    .status-dot.online { background: var(--accent); box-shadow: 0 0 0 4px var(--accent-dim), 0 0 12px var(--accent-glow); }
-    .status-dot.error { background: var(--danger); box-shadow: 0 0 0 4px rgba(255, 107, 107, 0.1); }
-    .status-text { font-size: 0.8rem; color: var(--text-secondary); font-weight: 500; }
-
-    /* Content Area */
-    .content { padding: 40px; display: flex; flex-direction: column; gap: 24px; }
-    
-    .content-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 8px; }
-    .content-header h2 { font-size: 1.8rem; font-weight: 700; letter-spacing: -0.02em; }
-    .header-actions { display: flex; gap: 12px; }
-
-    .btn {
-      padding: 10px 18px; border-radius: var(--radius-sm); font-family: 'Inter', sans-serif;
-      font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: all var(--transition-fast); border: none; outline: none;
-    }
-    .btn-primary { background: var(--accent); color: var(--text-on-accent); box-shadow: 0 4px 12px var(--accent-glow); }
-    .btn-primary:hover { background: var(--accent-hover); transform: translateY(-1px); box-shadow: 0 6px 16px var(--accent-glow); }
-    .btn-secondary { background: var(--bg-elevated); color: var(--text-primary); border: 1px solid var(--border); }
-    .btn-secondary:hover { border-color: var(--border-hover); background: var(--border); }
-
-    /* Kanban Board */
-    .kanban-board {
-      display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; align-items: start;
-    }
-    .kanban-col {
-      background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-md);
-      padding: 16px; display: flex; flex-direction: column; gap: 16px; min-height: 400px;
-    }
-    .kanban-col-header {
-      display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 1px solid var(--border);
-    }
-    .kanban-col-title { font-size: 0.95rem; font-weight: 600; display: flex; align-items: center; gap: 8px; }
-    .kanban-badge { background: var(--bg-elevated); color: var(--text-secondary); padding: 2px 8px; border-radius: var(--radius-full); font-size: 0.75rem; font-weight: 700; }
-
-    /* Cards */
-    .os-card {
-      background: var(--bg-elevated); border: 1px solid var(--border); border-radius: var(--radius-sm);
-      padding: 16px; cursor: pointer; transition: all var(--transition-fast); position: relative;
-    }
-    .os-card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
-    .os-id { font-size: 0.75rem; color: var(--accent); font-weight: 700; margin-bottom: 4px; }
-    .os-equipamento { font-size: 1.05rem; font-weight: 600; margin-bottom: 8px; color: var(--text-primary); }
-    .os-cliente { font-size: 0.8rem; color: var(--text-secondary); display: flex; align-items: center; gap: 6px; margin-bottom: 12px; }
-    .os-actions { display: flex; gap: 8px; border-top: 1px dashed var(--border); padding-top: 12px; margin-top: 12px; }
-    .btn-action { flex: 1; padding: 6px 0; font-size: 0.75rem; border-radius: 4px; border: none; cursor: pointer; font-weight: 600; transition: background 0.2s; }
-    .btn-action.next { background: var(--accent-dim); color: var(--accent); }
-    .btn-action.next:hover { background: var(--accent); color: var(--text-on-accent); }
-    
-    /* Stats */
-    .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
-    .stat-card { background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 24px; position: relative; overflow: hidden; }
-    .stat-card.accent { background: linear-gradient(135deg, rgba(109,234,237,0.1) 0%, transparent 100%); border-color: rgba(109,234,237,0.3); }
-    .stat-label { font-size: 0.85rem; color: var(--text-secondary); font-weight: 600; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em; }
-    .stat-value { font-size: 2rem; font-weight: 800; color: var(--text-primary); letter-spacing: -0.02em; }
-    
-    /* Modals */
-    .modal-overlay {
-      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(0,0,0,0.8); backdrop-filter: blur(4px);
-      display: flex; align-items: center; justify-content: center;
-      opacity: 0; pointer-events: none; transition: opacity var(--transition-fast); z-index: 1000;
-    }
-    .modal-overlay.ativo { opacity: 1; pointer-events: auto; }
-    .modal-content {
-      background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-lg);
-      padding: 32px; width: 90%; max-width: 500px; position: relative;
-      transform: translateY(20px); transition: transform var(--transition-smooth);
-    }
-    .modal-overlay.ativo .modal-content { transform: translateY(0); }
-    
-    .form-group { margin-bottom: 20px; }
-    .form-group label { display: block; font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 8px; font-weight: 600; }
-    .form-group input, .form-group select, .form-group textarea {
-      width: 100%; padding: 12px 14px; background: var(--bg-input); border: 1px solid var(--border);
-      color: var(--text-primary); border-radius: var(--radius-sm); font-family: 'Inter', sans-serif;
-      font-size: 0.9rem; outline: none; transition: border-color var(--transition-fast);
-    }
-    .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: var(--accent); }
-    
-    .btn-fechar-modal { position: absolute; top: 20px; right: 20px; background: transparent; border: none; color: var(--text-muted); font-size: 1.2rem; cursor: pointer; }
-    .btn-fechar-modal:hover { color: var(--text-primary); }
-
-  </style>
+        /* Print Styles */
+        @media print {
+            body * { visibility: hidden; }
+            #printArea, #printArea * { visibility: visible; }
+            #printArea { position: absolute; left: 0; top: 0; width: 100%; display: block !important; }
+            
+            .print-header { border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: flex-end; }
+            .print-logo { font-size: 24px; font-weight: bold; }
+            .print-logo small { display: block; font-size: 12px; font-weight: normal; color: #666; }
+            .print-os-num { text-align: right; font-size: 20px; font-weight: bold; }
+            .print-os-num small { display: block; font-size: 12px; font-weight: normal; color: #666; }
+            .print-section { margin-bottom: 20px; }
+            .print-section-title { font-weight: bold; font-size: 16px; border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-bottom: 10px; }
+            .print-row { display: flex; gap: 20px; margin-bottom: 10px; }
+            .print-field { flex: 1; }
+            .print-field label { display: block; font-size: 12px; color: #666; margin-bottom: 2px; }
+            .print-field span { font-weight: bold; font-size: 14px; }
+            .print-problema, .print-solucao { background: #f9f9f9; padding: 10px; border-radius: 4px; border: 1px solid #eee; font-size: 14px; }
+            .print-footer { margin-top: 50px; display: flex; justify-content: space-between; align-items: flex-end; }
+            .print-assinatura { text-align: center; width: 250px; }
+            .print-assinatura-linha { border-bottom: 1px solid #000; margin-bottom: 5px; }
+            .print-valor-destaque { font-size: 24px; font-weight: bold; text-align: center; }
+            .print-valor-destaque small { display: block; font-size: 12px; font-weight: normal; color: #666; }
+        }
+    </style>
 </head>
-<body>
-  <div class="app-layout">
-    <!-- SIDEBAR -->
-    <aside class="sidebar">
-      <div class="sidebar-brand">
-        <div class="brand-icon">🔧</div>
-        <h1 id="tituloCabecalho">Assistência OS</h1>
-        <p class="brand-sub">Sistema de Gestão</p>
-      </div>
-      <nav class="sidebar-nav">
-        <div class="nav-label">Menu</div>
-        <button class="nav-item active" id="navOS">
-          <span class="nav-icon">📋</span> Ordens de Serviço
-        </button>
-        <button class="nav-item" id="navFinanceiro">
-          <span class="nav-icon">💎</span> Financeiro
-        </button>
-        <button class="nav-item" id="navEquipe">
-          <span class="nav-icon">👨‍💻</span> Equipe / Técnicos
-        </button>
-      </nav>
-      <div class="sidebar-status">
-        <div class="status-dot-container">
-          <span class="status-dot" id="statusDot"></span>
-          <span class="status-text" id="statusText">Iniciando...</span>
-        </div>
-      </div>
-    </aside>
-
-    <!-- CONTENT -->
-    <div class="content">
-      
-      <!-- SEÇÃO OS -->
-      <section id="sectionOS">
-        <div class="content-header">
-          <h2>Ordens de Serviço</h2>
-          <div class="header-actions">
-            <button class="btn btn-primary" id="btnNovaOS">+ Nova OS</button>
-          </div>
+<body class="flex h-screen overflow-hidden">
+    <!-- Sidebar -->
+    <aside class="w-20 md:w-64 bg-slate-900 text-slate-300 flex flex-col transition-all duration-300 border-r border-slate-800">
+        <!-- Logo -->
+        <div class="h-20 flex items-center justify-center border-b border-slate-800 shrink-0">
+            <i class="ph-fill ph-wrench text-3xl text-indigo-500"></i>
+            <span class="ml-3 font-bold text-xl text-white hidden md:block">Gestor OS</span>
         </div>
         
-        <div class="kanban-board">
-          <div class="kanban-col">
-            <div class="kanban-col-header">
-              <div class="kanban-col-title">🟡 Recebido</div>
-              <div class="kanban-badge" id="badgeRecebido">0</div>
+        <!-- Navigation -->
+        <nav class="flex-1 py-6 space-y-2 px-3 overflow-y-auto">
+            <button class="nav-btn w-full flex items-center px-4 py-3 hover:bg-slate-800 hover:text-white rounded-xl transition-colors group active bg-indigo-600/10 text-indigo-400" data-target="dashboard-view">
+                <i class="ph-fill ph-squares-four text-2xl"></i>
+                <span class="ml-3 font-medium hidden md:block group-[.active]:font-bold group-[.active]:text-indigo-400 text-left w-full">Dashboard</span>
+            </button>
+            <button class="nav-btn w-full flex items-center px-4 py-3 hover:bg-slate-800 hover:text-white rounded-xl transition-colors group" data-target="os-view">
+                <i class="ph-fill ph-clipboard-text text-2xl"></i>
+                <span class="ml-3 font-medium hidden md:block group-[.active]:font-bold group-[.active]:text-indigo-400 text-left w-full">Ordens de Serviço</span>
+            </button>
+            <button class="nav-btn w-full flex items-center px-4 py-3 hover:bg-slate-800 hover:text-white rounded-xl transition-colors group" data-target="tecnicos-view">
+                <i class="ph-fill ph-users text-2xl"></i>
+                <span class="ml-3 font-medium hidden md:block group-[.active]:font-bold group-[.active]:text-indigo-400 text-left w-full">Técnicos</span>
+            </button>
+            <button class="nav-btn w-full flex items-center px-4 py-3 hover:bg-slate-800 hover:text-white rounded-xl transition-colors group" data-target="relatorios-view">
+                <i class="ph-fill ph-chart-line-up text-2xl"></i>
+                <span class="ml-3 font-medium hidden md:block group-[.active]:font-bold group-[.active]:text-indigo-400 text-left w-full">Relatórios</span>
+            </button>
+            <button class="nav-btn w-full flex items-center px-4 py-3 hover:bg-slate-800 hover:text-white rounded-xl transition-colors group" data-target="config-view">
+                <i class="ph-fill ph-gear text-2xl"></i>
+                <span class="ml-3 font-medium hidden md:block group-[.active]:font-bold group-[.active]:text-indigo-400 text-left w-full">Configurações</span>
+            </button>
+        </nav>
+        
+        <!-- Status Bot -->
+        <div class="p-4 border-t border-slate-800 shrink-0 hidden md:block">
+            <div class="bg-slate-800/50 p-3 rounded-xl flex items-center gap-3">
+                <div id="bot-status-dot" class="w-2.5 h-2.5 rounded-full bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.6)]"></div>
+                <div class="text-xs overflow-hidden">
+                    <p class="font-semibold text-slate-200">Robô WhatsApp</p>
+                    <p id="bot-status-text" class="text-slate-400 truncate">Verificando conexão...</p>
+                </div>
             </div>
-            <div id="colRecebido" style="display: flex; flex-direction: column; gap: 12px;"></div>
-          </div>
-          
-          <div class="kanban-col">
-            <div class="kanban-col-header">
-              <div class="kanban-col-title">🔨 Em Bancada</div>
-              <div class="kanban-badge" id="badgeAndamento">0</div>
-            </div>
-            <div id="colAndamento" style="display: flex; flex-direction: column; gap: 12px;"></div>
-          </div>
-          
-          <div class="kanban-col">
-            <div class="kanban-col-header">
-              <div class="kanban-col-title">✅ Concluído</div>
-              <div class="kanban-badge" id="badgeConcluido">0</div>
-            </div>
-            <div id="colConcluido" style="display: flex; flex-direction: column; gap: 12px;"></div>
-          </div>
         </div>
-      </section>
+    </aside>
 
-      <!-- SEÇÃO EQUIPE -->
-      <section id="sectionEquipe" style="display:none">
-        <div class="content-header">
-          <h2>Equipe de Técnicos</h2>
-        </div>
-        <div class="kanban-col" style="min-height: auto;">
-          <div class="form-group" style="display:flex; gap: 10px;">
-            <input type="text" id="inputNomeTecnico" placeholder="Nome do Técnico" />
-            <input type="number" id="inputComissaoTecnico" placeholder="Comissão %" style="width: 120px;" />
-            <button class="btn btn-primary" id="btnAddTecnico">Adicionar</button>
-          </div>
-          <ul id="listaTecnicos" style="list-style:none; display:flex; flex-direction:column; gap:8px;"></ul>
-        </div>
-      </section>
-
-      <!-- SEÇÃO FINANCEIRO -->
-      <section id="sectionFinanceiro" style="display:none">
-        <div class="content-header">
-          <h2>Dashboard Financeiro</h2>
-        </div>
-        <div class="stats-row" style="margin-bottom: 20px;">
-          <div class="stat-card accent">
-            <div class="stat-label">Faturamento</div>
-            <div class="stat-value" id="finFaturamento">R$ 0,00</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">Lucro (Receitas - Despesas)</div>
-            <div class="stat-value" id="finLucro">R$ 0,00</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">Despesas</div>
-            <div class="stat-value" id="finDespesas">R$ 0,00</div>
-          </div>
-        </div>
-        <div class="kanban-board">
-          <div class="kanban-col" style="grid-column: span 2;">
-            <canvas id="financeChart" style="width:100%; height:300px;"></canvas>
-          </div>
-          <div class="kanban-col">
-            <div class="kanban-col-title" style="margin-bottom: 12px;">💸 Lançar Despesa</div>
-            <div class="form-group">
-              <input type="text" id="inputDespesaDesc" placeholder="Descrição (ex: Peças, Luz)" />
+    <!-- Main Content -->
+    <main class="flex-1 flex flex-col h-screen overflow-hidden bg-[#f4f7fa]">
+        
+        <!-- VIEW: DASHBOARD -->
+        <section id="dashboard-view" class="tab-content active flex-col h-full overflow-y-auto p-6 md:p-10">
+            <div class="flex justify-between items-center mb-8 shrink-0">
+                <h1 class="text-3xl font-bold text-slate-800">Visão Geral</h1>
             </div>
-            <div class="form-group">
-              <input type="number" id="inputDespesaValor" placeholder="Valor (R$)" />
+            
+            <!-- Cards (OS Hoje, Receita Mês, etc) -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8 shrink-0">
+                <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100/60 relative overflow-hidden group">
+                    <div class="absolute -right-4 -top-4 w-24 h-24 bg-indigo-50 rounded-full group-hover:scale-110 transition-transform"></div>
+                    <p class="text-slate-500 text-sm font-semibold mb-1 relative">OS Abertas (Total)</p>
+                    <p class="text-3xl font-bold text-slate-800 relative" id="dash-os-hoje">0</p>
+                </div>
+                <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100/60 relative overflow-hidden group">
+                    <div class="absolute -right-4 -top-4 w-24 h-24 bg-amber-50 rounded-full group-hover:scale-110 transition-transform"></div>
+                    <p class="text-slate-500 text-sm font-semibold mb-1 relative">Na Bancada</p>
+                    <p class="text-3xl font-bold text-slate-800 relative" id="dash-os-bancada">0</p>
+                </div>
+                <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100/60 relative overflow-hidden group">
+                    <div class="absolute -right-4 -top-4 w-24 h-24 bg-emerald-50 rounded-full group-hover:scale-110 transition-transform"></div>
+                    <p class="text-slate-500 text-sm font-semibold mb-1 relative">Faturamento Mensal</p>
+                    <p class="text-3xl font-bold text-emerald-600 relative" id="dash-fat-mes">R$ 0,00</p>
+                </div>
+                <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100/60 relative overflow-hidden group">
+                    <div class="absolute -right-4 -top-4 w-24 h-24 bg-rose-50 rounded-full group-hover:scale-110 transition-transform"></div>
+                    <p class="text-slate-500 text-sm font-semibold mb-1 relative">Lucro Líquido Mensal</p>
+                    <p class="text-3xl font-bold text-slate-800 relative" id="dash-lucro-mes">R$ 0,00</p>
+                </div>
             </div>
-            <button class="btn btn-secondary" style="width:100%" id="btnAddDespesa">Registrar Saída</button>
-          </div>
-        </div>
-      </section>
+            
+            <!-- Charts Row -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 shrink-0 pb-10">
+                <div class="lg:col-span-2 bg-white rounded-2xl p-6 shadow-sm border border-slate-100/60">
+                    <h3 class="text-lg font-bold text-slate-700 mb-6 flex items-center gap-2">
+                        <i class="ph-fill ph-trend-up text-indigo-500"></i> Fluxo de Caixa (Últimos 15 Dias)
+                    </h3>
+                    <div id="mainChart" class="h-80 w-full"></div>
+                </div>
+                
+                <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100/60 flex flex-col">
+                    <h3 class="text-lg font-bold text-slate-700 mb-6 flex items-center gap-2">
+                        <i class="ph-fill ph-chart-pie-slice text-emerald-500"></i> Equipamentos por Tipo
+                    </h3>
+                    <div class="flex-1 flex flex-col">
+                        <!-- Waffle Grid -->
+                        <div id="waffle-container" class="waffle-grid mb-6"></div>
+                        <!-- Waffle Legend -->
+                        <div class="mt-auto space-y-3" id="waffle-legend"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
 
+        <!-- VIEW: ORDENS DE SERVIÇO (KANBAN) -->
+        <section id="os-view" class="tab-content flex-col h-full overflow-hidden p-6 md:p-10">
+            <div class="flex justify-between items-center mb-8 shrink-0">
+                <h1 class="text-3xl font-bold text-slate-800">Ordens de Serviço</h1>
+                <button onclick="document.getElementById('modalNovaOS').classList.remove('hidden')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-medium flex items-center gap-2 transition-transform active:scale-95 shadow-sm">
+                    <i class="ph-bold ph-plus"></i> Nova OS
+                </button>
+            </div>
+            
+            <div class="flex-1 flex gap-6 overflow-x-auto pb-4 items-stretch">
+                <!-- Col 1: Em Aberto -->
+                <div class="flex-1 min-w-[340px] max-w-[400px] bg-slate-200/40 rounded-2xl flex flex-col max-h-full border border-slate-200/60 overflow-hidden">
+                    <div class="p-5 border-b border-slate-200/80 flex justify-between items-center shrink-0">
+                        <div class="flex items-center gap-2">
+                            <div class="w-3 h-3 rounded-full bg-slate-400"></div>
+                            <h2 class="font-bold text-slate-700 text-lg">Em Aberto</h2>
+                        </div>
+                        <span id="count-recebido" class="bg-white text-slate-600 px-2.5 py-1 rounded-lg text-sm font-bold shadow-sm border border-slate-100">0</span>
+                    </div>
+                    <div id="colRecebido" class="p-4 flex-1 overflow-y-auto space-y-4 kanban-col"></div>
+                </div>
+                
+                <!-- Col 2: Na Bancada -->
+                <div class="flex-1 min-w-[340px] max-w-[400px] bg-indigo-50/50 rounded-2xl flex flex-col max-h-full border border-indigo-100 overflow-hidden">
+                    <div class="p-5 border-b border-indigo-100 flex justify-between items-center shrink-0">
+                        <div class="flex items-center gap-2">
+                            <div class="w-3 h-3 rounded-full bg-indigo-400 shadow-[0_0_8px_rgba(99,102,241,0.5)]"></div>
+                            <h2 class="font-bold text-indigo-900 text-lg">Na Bancada</h2>
+                        </div>
+                        <span id="count-andamento" class="bg-white text-indigo-700 px-2.5 py-1 rounded-lg text-sm font-bold shadow-sm border border-indigo-50">0</span>
+                    </div>
+                    <div id="colAndamento" class="p-4 flex-1 overflow-y-auto space-y-4 kanban-col"></div>
+                </div>
+                
+                <!-- Col 3: Concluídos -->
+                <div class="flex-1 min-w-[340px] max-w-[400px] bg-emerald-50/50 rounded-2xl flex flex-col max-h-full border border-emerald-100 overflow-hidden">
+                    <div class="p-5 border-b border-emerald-100 flex justify-between items-center shrink-0">
+                        <div class="flex items-center gap-2">
+                            <div class="w-3 h-3 rounded-full bg-emerald-400"></div>
+                            <h2 class="font-bold text-emerald-900 text-lg">Pronto / Retirada</h2>
+                        </div>
+                        <span id="count-concluido" class="bg-white text-emerald-700 px-2.5 py-1 rounded-lg text-sm font-bold shadow-sm border border-emerald-50">0</span>
+                    </div>
+                    <div id="colConcluido" class="p-4 flex-1 overflow-y-auto space-y-4 kanban-col"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- VIEW: TÉCNICOS -->
+        <section id="tecnicos-view" class="tab-content flex-col h-full overflow-y-auto p-6 md:p-10">
+            <div class="flex justify-between items-center mb-8 shrink-0">
+                <h1 class="text-3xl font-bold text-slate-800">Equipe Técnica</h1>
+                <button onclick="document.getElementById('modalNovoTecnico').classList.remove('hidden')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-medium flex items-center gap-2 transition-transform active:scale-95 shadow-sm">
+                    <i class="ph-bold ph-user-plus text-xl"></i> Novo Técnico
+                </button>
+            </div>
+            
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 shrink-0" id="grid-tecnicos">
+                <!-- Preenchido via JS -->
+            </div>
+        </section>
+
+        <!-- VIEW: RELATÓRIOS -->
+        <section id="relatorios-view" class="tab-content flex-col h-full overflow-y-auto p-6 md:p-10">
+            <div class="flex justify-between items-center mb-8 shrink-0">
+                <h1 class="text-3xl font-bold text-slate-800">Lançamentos Financeiros</h1>
+                <button onclick="document.getElementById('modalNovaDespesa').classList.remove('hidden')" class="bg-rose-500 hover:bg-rose-600 text-white px-5 py-2.5 rounded-xl font-medium flex items-center gap-2 transition-transform active:scale-95 shadow-sm">
+                    <i class="ph-bold ph-minus"></i> Lançar Despesa
+                </button>
+            </div>
+            
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex flex-col shrink-0">
+                <div class="p-0 overflow-x-auto">
+                    <table class="w-full text-left text-sm text-slate-600">
+                        <thead class="bg-slate-50 text-slate-500 border-b border-slate-100">
+                            <tr>
+                                <th class="px-6 py-4 font-semibold uppercase tracking-wider text-xs">Data</th>
+                                <th class="px-6 py-4 font-semibold uppercase tracking-wider text-xs">Descrição</th>
+                                <th class="px-6 py-4 font-semibold uppercase tracking-wider text-xs">Tipo</th>
+                                <th class="px-6 py-4 font-semibold uppercase tracking-wider text-xs text-right">Valor (R$)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabela-transacoes" class="divide-y divide-slate-100">
+                            <!-- JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- VIEW: CONFIGURAÇÕES -->
+        <section id="config-view" class="tab-content flex-col h-full overflow-y-auto p-6 md:p-10">
+            <div class="mb-8 shrink-0">
+                <h1 class="text-3xl font-bold text-slate-800">Configurações</h1>
+            </div>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 shrink-0 pb-10">
+                <!-- Geral -->
+                <div class="bg-white rounded-2xl p-8 shadow-sm border border-slate-100/60">
+                    <h2 class="text-xl font-bold text-slate-700 mb-6 flex items-center gap-2">
+                        <i class="ph-fill ph-storefront text-slate-400"></i> Informações da Loja
+                    </h2>
+                    <div class="space-y-6">
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-2">Nome da Assistência</label>
+                            <input type="text" id="config-nome-negocio" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 transition-all font-medium text-slate-700">
+                        </div>
+                        <button id="btnSalvarConfigGeral" class="bg-slate-800 hover:bg-slate-900 text-white px-5 py-3 rounded-xl font-medium w-full transition-colors">
+                            Salvar Alterações
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ================= MODAIS ================= -->
+    
+    <!-- Modal: Nova OS -->
+    <div id="modalNovaOS" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-full">
+            <div class="px-8 py-5 border-b border-slate-100 flex justify-between items-center bg-white shrink-0">
+                <h3 class="font-bold text-xl text-slate-800 flex items-center gap-2"><i class="ph-fill ph-plus-circle text-indigo-500"></i> Nova OS</h3>
+                <button onclick="document.getElementById('modalNovaOS').classList.add('hidden')" class="w-8 h-8 flex items-center justify-center bg-slate-100 text-slate-500 hover:bg-slate-200 rounded-full transition-colors"><i class="ph-bold ph-x"></i></button>
+            </div>
+            <div class="p-8 space-y-5 overflow-y-auto">
+                <div class="grid grid-cols-2 gap-5">
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1.5">Nome do Cliente *</label>
+                        <input type="text" id="osNome" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/30">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1.5">WhatsApp</label>
+                        <input type="text" id="osZap" placeholder="Ex: 11999999999" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/30">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1.5">Equipamento (Marca/Modelo) *</label>
+                    <input type="text" id="osEqp" placeholder="Ex: iPhone 12 Pro" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/30">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1.5">Defeito Relatado</label>
+                    <textarea id="osProb" rows="3" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 resize-none"></textarea>
+                </div>
+            </div>
+            <div class="px-8 py-5 bg-slate-50 border-t border-slate-100 flex justify-end gap-3 shrink-0">
+                <button onclick="document.getElementById('modalNovaOS').classList.add('hidden')" class="px-5 py-2.5 font-semibold text-slate-600 hover:bg-slate-200 rounded-xl transition-colors">Cancelar</button>
+                <button id="btnSalvarNovaOS" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-transform active:scale-95 shadow-sm">Criar OS</button>
+            </div>
+        </div>
     </div>
-  </div>
 
-  <!-- MODAL: NOVA OS -->
-  <div id="modalNovaOS" class="modal-overlay">
-    <div class="modal-content">
-      <button class="btn-fechar-modal" onclick="document.getElementById('modalNovaOS').classList.remove('ativo')">✕</button>
-      <h2 style="margin-bottom:20px;">+ Nova Ordem de Serviço</h2>
-      <div class="form-group">
-        <label>Nome do Cliente</label>
-        <input type="text" id="osNome" placeholder="Ex: João da Silva" />
-      </div>
-      <div class="form-group">
-        <label>WhatsApp do Cliente</label>
-        <input type="text" id="osZap" placeholder="Ex: 11999998888 (Sem formatação)" />
-      </div>
-      <div class="form-group">
-        <label>Equipamento / Aparelho</label>
-        <input type="text" id="osEqp" placeholder="Ex: iPhone 13 / TV Samsung 50" />
-      </div>
-      <div class="form-group">
-        <label>Problema Relatado</label>
-        <textarea id="osProb" rows="3" placeholder="Ex: Tela quebrada, não liga..."></textarea>
-      </div>
-      <button class="btn btn-primary" style="width:100%" id="btnSalvarNovaOS">Criar OS</button>
+    <!-- Modal: Concluir OS -->
+    <div id="modalConcluirOS" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-full">
+            <div class="px-8 py-5 border-b border-slate-100 flex justify-between items-center bg-white shrink-0">
+                <h3 class="font-bold text-xl text-slate-800 flex items-center gap-2"><i class="ph-fill ph-check-circle text-emerald-500"></i> Finalizar Serviço</h3>
+                <button onclick="document.getElementById('modalConcluirOS').classList.add('hidden')" class="w-8 h-8 flex items-center justify-center bg-slate-100 text-slate-500 hover:bg-slate-200 rounded-full transition-colors"><i class="ph-bold ph-x"></i></button>
+            </div>
+            <div class="p-8 space-y-5 overflow-y-auto">
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1.5">Técnico Responsável *</label>
+                    <select id="concTecnico" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 text-slate-700 font-medium"></select>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1.5">Solução Aplicada</label>
+                    <textarea id="concSolucao" rows="3" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 resize-none"></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1.5">Valor Cobrado (R$) *</label>
+                    <input type="number" step="0.01" id="concValor" class="w-full bg-emerald-50/50 border border-emerald-200 rounded-xl px-4 py-3 font-bold text-emerald-700 text-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/50">
+                </div>
+            </div>
+            <div class="px-8 py-5 bg-slate-50 border-t border-slate-100 flex justify-end gap-3 shrink-0">
+                <button onclick="document.getElementById('modalConcluirOS').classList.add('hidden')" class="px-5 py-2.5 font-semibold text-slate-600 hover:bg-slate-200 rounded-xl transition-colors">Cancelar</button>
+                <button id="btnSalvarConclusao" class="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl transition-transform active:scale-95 shadow-sm">Faturar</button>
+            </div>
+        </div>
     </div>
-  </div>
 
-  <!-- MODAL: CONCLUIR OS -->
-  <div id="modalConcluirOS" class="modal-overlay">
-    <div class="modal-content">
-      <button class="btn-fechar-modal" onclick="document.getElementById('modalConcluirOS').classList.remove('ativo')">✕</button>
-      <h2 style="margin-bottom:20px;">✅ Concluir OS</h2>
-      
-      <div class="form-group">
-        <label>O que foi feito? (Solução)</label>
-        <textarea id="concSolucao" rows="2" placeholder="Ex: Troca de tela e bateria"></textarea>
-      </div>
-      <div class="form-group">
-        <label>Técnico Responsável</label>
-        <select id="concTecnico"><option value="">Selecione...</option></select>
-      </div>
-      <div class="form-group">
-        <label>Valor Total Cobrado (R$)</label>
-        <input type="number" id="concValor" placeholder="Ex: 350.00" />
-      </div>
-      <p style="font-size:0.75rem; color:var(--text-secondary); margin-bottom:15px;">Ao confirmar, o cliente será avisado no WhatsApp que o aparelho está pronto.</p>
-      <button class="btn btn-primary" style="width:100%; background:var(--success)" id="btnSalvarConclusao">Finalizar e Faturar</button>
+    <!-- Modal: Lançar Despesa -->
+    <div id="modalNovaDespesa" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-white rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden flex flex-col">
+            <div class="px-8 py-5 border-b border-slate-100 flex justify-between items-center bg-white shrink-0">
+                <h3 class="font-bold text-xl text-slate-800">Lançar Despesa</h3>
+                <button onclick="document.getElementById('modalNovaDespesa').classList.add('hidden')" class="w-8 h-8 flex items-center justify-center bg-slate-100 text-slate-500 hover:bg-slate-200 rounded-full transition-colors"><i class="ph-bold ph-x"></i></button>
+            </div>
+            <div class="p-8 space-y-5">
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1.5">Descrição *</label>
+                    <input type="text" id="inputDespesaDesc" placeholder="Ex: Telas" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/30">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1.5">Valor (R$) *</label>
+                    <input type="number" step="0.01" id="inputDespesaValor" class="w-full bg-rose-50/50 border border-rose-200 rounded-xl px-4 py-3 font-bold text-rose-600 text-xl focus:outline-none focus:ring-2 focus:ring-rose-500/50">
+                </div>
+            </div>
+            <div class="px-8 py-5 bg-slate-50 border-t border-slate-100 flex justify-end gap-3 shrink-0">
+                <button onclick="document.getElementById('modalNovaDespesa').classList.add('hidden')" class="px-5 py-2.5 font-semibold text-slate-600 hover:bg-slate-200 rounded-xl transition-colors">Cancelar</button>
+                <button id="btnAddDespesa" class="px-6 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded-xl transition-transform active:scale-95 shadow-sm">Lançar</button>
+            </div>
+        </div>
     </div>
-  </div>
 
-  <script src="script.js"></script>
+    <!-- Modal: Adicionar Técnico -->
+    <div id="modalNovoTecnico" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-white rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden flex flex-col">
+            <div class="px-8 py-5 border-b border-slate-100 flex justify-between items-center bg-white shrink-0">
+                <h3 class="font-bold text-xl text-slate-800">Novo Técnico</h3>
+                <button onclick="document.getElementById('modalNovoTecnico').classList.add('hidden')" class="w-8 h-8 flex items-center justify-center bg-slate-100 text-slate-500 hover:bg-slate-200 rounded-full transition-colors"><i class="ph-bold ph-x"></i></button>
+            </div>
+            <div class="p-8 space-y-5">
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1.5">Nome Completo *</label>
+                    <input type="text" id="inputNomeTecnico" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/30">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1.5">Comissão (%) *</label>
+                    <input type="number" id="inputComissaoTecnico" placeholder="Ex: 40" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/30">
+                </div>
+            </div>
+            <div class="px-8 py-5 bg-slate-50 border-t border-slate-100 flex justify-end gap-3 shrink-0">
+                <button onclick="document.getElementById('modalNovoTecnico').classList.add('hidden')" class="px-5 py-2.5 font-semibold text-slate-600 hover:bg-slate-200 rounded-xl transition-colors">Cancelar</button>
+                <button id="btnAddTecnico" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-transform active:scale-95 shadow-sm">Salvar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Imprimir (Renderiza estilos invisiveis até chamar window.print) -->
+    <div id="printArea" class="hidden absolute top-0 left-0 w-full bg-white text-black p-8 text-sm h-screen overflow-auto">
+        <!-- Renderizado via JS -->
+    </div>
+
+    <script src="script.js"></script>
 </body>
 </html>

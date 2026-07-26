@@ -1,93 +1,324 @@
-// DOM
-const navOS = document.getElementById('navOS');
-const navFinanceiro = document.getElementById('navFinanceiro');
-const navEquipe = document.getElementById('navEquipe');
+// ==================== NAVEGAÇÃO ====================
+document.querySelectorAll('.nav-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+        // Remover active de todos
+        document.querySelectorAll('.nav-btn').forEach(b => {
+            b.classList.remove('active', 'bg-indigo-600/10', 'text-indigo-400');
+        });
+        document.querySelectorAll('.tab-content').forEach(t => {
+            t.classList.remove('active');
+        });
 
-const sectionOS = document.getElementById('sectionOS');
-const sectionFinanceiro = document.getElementById('sectionFinanceiro');
-const sectionEquipe = document.getElementById('sectionEquipe');
+        // Adicionar active ao clicado
+        const targetId = btn.getAttribute('data-target');
+        btn.classList.add('active', 'bg-indigo-600/10', 'text-indigo-400');
+        document.getElementById(targetId).classList.add('active');
 
-const colRecebido = document.getElementById('colRecebido');
-const colAndamento = document.getElementById('colAndamento');
-const colConcluido = document.getElementById('colConcluido');
-const badgeRecebido = document.getElementById('badgeRecebido');
-const badgeAndamento = document.getElementById('badgeAndamento');
-const badgeConcluido = document.getElementById('badgeConcluido');
+        // Carregar dados dependendo da aba
+        if (targetId === 'os-view') carregarOS();
+        if (targetId === 'tecnicos-view') loadEquipe();
+        if (targetId === 'relatorios-view' || targetId === 'dashboard-view') loadFinanceiroE_Dashboard();
+        if (targetId === 'config-view') loadConfig();
+    });
+});
 
-const modalNovaOS = document.getElementById('modalNovaOS');
-const modalConcluirOS = document.getElementById('modalConcluirOS');
+// ==================== DASHBOARD & FINANCEIRO ====================
+let chartInstance = null;
 
-// Tabs
-function switchTab(activeNav, activeSection) {
-  [navOS, navFinanceiro, navEquipe].forEach(n => n.classList.remove('active'));
-  [sectionOS, sectionFinanceiro, sectionEquipe].forEach(s => s.style.display = 'none');
-  activeNav.classList.add('active');
-  activeSection.style.display = 'block';
+async function loadFinanceiroE_Dashboard() {
+    try {
+        const res = await fetch('/api/financeiro/dashboard');
+        const transacoes = await res.json();
+        
+        let fatTotal = 0, fatMes = 0, despMes = 0;
+        const labels = [];
+        const dadosRec = [];
+        const dadosDesp = [];
+        
+        // Agrupar por data (simplificado)
+        const dictRec = {}; const dictDesp = {};
+        const hoje = new Date();
+        const mesAtual = hoje.getMonth();
+        const anoAtual = hoje.getFullYear();
+
+        transacoes.forEach(t => {
+            const v = parseFloat(t.valor);
+            const dataT = new Date(t.data);
+            
+            // Faturamento Total (Toda vida) - usado em OS/Lucro? Nao, fatMês
+            if (t.tipo === 'receita') fatTotal += v;
+            
+            if (dataT.getMonth() === mesAtual && dataT.getFullYear() === anoAtual) {
+                if (t.tipo === 'receita') fatMes += v;
+                if (t.tipo === 'despesa') despMes += v;
+            }
+
+            if(t.tipo === 'receita') dictRec[t.data] = (dictRec[t.data]||0) + v;
+            if(t.tipo === 'despesa') dictDesp[t.data] = (dictDesp[t.data]||0) + v;
+        });
+        
+        // Atualizar Dashboard
+        document.getElementById('dash-fat-mes').textContent = `R$ ${fatMes.toFixed(2).replace('.',',')}`;
+        const lucro = fatMes - despMes;
+        const lucroEl = document.getElementById('dash-lucro-mes');
+        lucroEl.textContent = `R$ ${lucro.toFixed(2).replace('.',',')}`;
+        lucroEl.className = lucro >= 0 ? 'text-3xl font-bold text-indigo-600 relative' : 'text-3xl font-bold text-rose-600 relative';
+
+        // Gráfico últimos 15 dias (ApexCharts)
+        for(let i=14; i>=0; i--) {
+            const d = new Date(); d.setDate(d.getDate()-i);
+            const dStr = d.toISOString().split('T')[0];
+            labels.push(dStr.split('-').reverse().slice(0,2).join('/'));
+            dadosRec.push(dictRec[dStr] || 0);
+            dadosDesp.push(dictDesp[dStr] || 0);
+        }
+
+        renderMainChart(labels, dadosRec, dadosDesp);
+        
+        // Tabela de Transações (Relatórios)
+        const tbody = document.getElementById('tabela-transacoes');
+        tbody.innerHTML = '';
+        if (transacoes.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" class="px-6 py-4 text-center text-slate-400">Nenhuma movimentação</td></tr>';
+        } else {
+            [...transacoes].reverse().forEach(t => {
+                const isDespesa = t.tipo === 'despesa';
+                const color = isDespesa ? 'text-rose-600' : 'text-emerald-600';
+                const bgIcon = isDespesa ? 'bg-rose-100 text-rose-600' : 'bg-emerald-100 text-emerald-600';
+                const icon = isDespesa ? 'ph-arrow-down-right' : 'ph-arrow-up-right';
+                const sign = isDespesa ? '-' : '+';
+                
+                let dateStr = t.data;
+                if(dateStr.includes('-')) {
+                    const parts = dateStr.split('-');
+                    if(parts.length === 3) dateStr = `${parts[2]}/${parts[1]}/${parts[0]}`;
+                }
+
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-50 transition-colors">
+                        <td class="px-6 py-4 whitespace-nowrap">${dateStr}</td>
+                        <td class="px-6 py-4 font-medium text-slate-700">${t.descricao}</td>
+                        <td class="px-6 py-4">
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium ${bgIcon}">
+                                <i class="ph-bold ${icon}"></i> ${isDespesa ? 'Despesa' : 'Receita'}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 text-right font-bold ${color}">${sign} R$ ${parseFloat(t.valor).toFixed(2).replace('.', ',')}</td>
+                    </tr>
+                `;
+            });
+        }
+    } catch(e) { console.error(e); }
 }
 
-navOS.addEventListener('click', () => { switchTab(navOS, sectionOS); carregarOS(); });
-navFinanceiro.addEventListener('click', () => { switchTab(navFinanceiro, sectionFinanceiro); loadFinanceiro(); });
-navEquipe.addEventListener('click', () => { switchTab(navEquipe, sectionEquipe); loadEquipe(); });
+function renderMainChart(labels, receitas, despesas) {
+    if (chartInstance) {
+        chartInstance.destroy();
+    }
+    
+    var options = {
+        series: [{
+            name: 'Receitas',
+            data: receitas
+        }, {
+            name: 'Despesas',
+            data: despesas
+        }],
+        chart: {
+            type: 'area',
+            height: 320,
+            fontFamily: 'Inter, sans-serif',
+            toolbar: { show: false },
+            zoom: { enabled: false }
+        },
+        colors: ['#6366f1', '#f43f5e'],
+        fill: {
+            type: 'gradient',
+            gradient: { shadeIntensity: 1, opacityFrom: 0.4, opacityTo: 0.05, stops: [0, 100] }
+        },
+        dataLabels: { enabled: false },
+        stroke: { curve: 'smooth', width: 3 },
+        xaxis: {
+            categories: labels,
+            axisBorder: { show: false },
+            axisTicks: { show: false }
+        },
+        yaxis: {
+            labels: { formatter: (value) => "R$ " + value.toFixed(0) }
+        },
+        grid: {
+            borderColor: '#f1f5f9',
+            strokeDashArray: 4,
+            yaxis: { lines: { show: true } }
+        },
+        legend: { position: 'top', horizontalAlign: 'right' }
+    };
 
-// ==================== OS LOGIC ====================
+    chartInstance = new ApexCharts(document.querySelector("#mainChart"), options);
+    chartInstance.render();
+}
+
+function renderWaffleChart(ordens) {
+    // Conta ocorrências de equipamentos por palavra-chave para agrupar
+    let smart = 0, note = 0, pc = 0, outros = 0;
+    let total = 0;
+    
+    ordens.forEach(o => {
+        if (o.status !== 'concluido') return; // só conta concluídos na receita (idealmente)
+        total++;
+        const eq = (o.equipamento || '').toLowerCase();
+        if (eq.includes('iphone') || eq.includes('samsung') || eq.includes('motorola') || eq.includes('celular') || eq.includes('smartphone')) smart++;
+        else if (eq.includes('note') || eq.includes('macbook')) note++;
+        else if (eq.includes('pc') || eq.includes('computador')) pc++;
+        else outros++;
+    });
+
+    if (total === 0) total = 1; // Evita divisão por zero
+
+    const pSmart = Math.round((smart / total) * 100) || 0;
+    const pNote = Math.round((note / total) * 100) || 0;
+    const pPc = Math.round((pc / total) * 100) || 0;
+    const pOutros = 100 - (pSmart + pNote + pPc); // O resto
+
+    const container = document.getElementById('waffle-container');
+    container.innerHTML = '';
+    
+    let totalSquares = 100;
+    for(let i=0; i<totalSquares; i++) {
+        const div = document.createElement('div');
+        div.className = 'waffle-cell';
+        if (i < pSmart) div.style.backgroundColor = '#6366f1'; // Indigo
+        else if (i < pSmart + pNote) div.style.backgroundColor = '#10b981'; // Emerald
+        else if (i < pSmart + pNote + pPc) div.style.backgroundColor = '#f59e0b'; // Amber
+        else div.style.backgroundColor = '#cbd5e1'; // Slate
+        container.appendChild(div);
+    }
+
+    const legend = document.getElementById('waffle-legend');
+    legend.innerHTML = `
+        <div class="flex items-center justify-between text-sm">
+            <div class="flex items-center gap-2"><div class="w-3 h-3 rounded-full bg-indigo-500"></div><span class="text-slate-600 font-medium">Smartphones</span></div>
+            <span class="font-bold text-slate-800">${pSmart}%</span>
+        </div>
+        <div class="flex items-center justify-between text-sm">
+            <div class="flex items-center gap-2"><div class="w-3 h-3 rounded-full bg-emerald-500"></div><span class="text-slate-600 font-medium">Notebooks</span></div>
+            <span class="font-bold text-slate-800">${pNote}%</span>
+        </div>
+        <div class="flex items-center justify-between text-sm">
+            <div class="flex items-center gap-2"><div class="w-3 h-3 rounded-full bg-amber-500"></div><span class="text-slate-600 font-medium">Desktops / PCs</span></div>
+            <span class="font-bold text-slate-800">${pPc}%</span>
+        </div>
+        <div class="flex items-center justify-between text-sm">
+            <div class="flex items-center gap-2"><div class="w-3 h-3 rounded-full bg-slate-300"></div><span class="text-slate-600 font-medium">Outros / Vendas</span></div>
+            <span class="font-bold text-slate-800">${pOutros}%</span>
+        </div>
+    `;
+}
+
+// Lançar Despesa
+document.getElementById('btnAddDespesa').addEventListener('click', async () => {
+    const descricao = document.getElementById('inputDespesaDesc').value.trim();
+    const valor = document.getElementById('inputDespesaValor').value.trim();
+    if(!descricao || !valor) return;
+    
+    const data = new Date().toISOString().split('T')[0];
+    await fetch('/api/despesas', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ descricao, valor: parseFloat(valor.replace(',','.')), data })
+    });
+    
+    document.getElementById('inputDespesaDesc').value = '';
+    document.getElementById('inputDespesaValor').value = '';
+    document.getElementById('modalNovaDespesa').classList.add('hidden');
+    loadFinanceiroE_Dashboard();
+});
+
+// ==================== ORDENS DE SERVIÇO ====================
 async function carregarOS() {
     try {
         const res = await fetch('/api/os');
         const ordens = await res.json();
         
-        colRecebido.innerHTML = '';
-        colAndamento.innerHTML = '';
-        colConcluido.innerHTML = '';
+        const colR = document.getElementById('colRecebido');
+        const colA = document.getElementById('colAndamento');
+        const colC = document.getElementById('colConcluido');
+        
+        colR.innerHTML = ''; colA.innerHTML = ''; colC.innerHTML = '';
         
         let cR = 0, cA = 0, cC = 0;
 
         ordens.forEach(os => {
             const card = document.createElement('div');
-            card.className = 'os-card';
+            card.className = 'bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex flex-col gap-3 group transition-shadow hover:shadow-md cursor-default';
             
             let actions = '';
+            let statusBadge = '';
+            
             if (os.status === 'recebido') {
                 cR++;
-                actions = `<div class="os-actions">
-                    <button class="btn-action next" onclick="mudarStatusOS(${os.id}, 'em_andamento')">Passar para Bancada ➔</button>
-                </div>`;
+                statusBadge = '<span class="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider">Aguardando</span>';
+                actions = `
+                    <div class="flex gap-2 mt-2 pt-3 border-t border-slate-100">
+                        <button onclick="mudarStatusOS(${os.id}, 'em_andamento')" class="flex-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 py-2 rounded-lg text-sm font-semibold transition-colors flex justify-center items-center gap-1.5"><i class="ph-bold ph-arrow-right"></i> Bancada</button>
+                        <button onclick="abrirModalImprimir(${os.id})" class="w-10 h-10 flex justify-center items-center bg-slate-50 hover:bg-slate-100 text-slate-500 rounded-lg transition-colors"><i class="ph-bold ph-printer"></i></button>
+                    </div>`;
             } else if (os.status === 'em_andamento') {
                 cA++;
-                actions = `<div class="os-actions">
-                    <button class="btn-action next" onclick="abrirModalConcluir(${os.id})">✅ Finalizar Serviço</button>
-                </div>`;
+                statusBadge = '<span class="bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider">Analisando</span>';
+                actions = `
+                    <div class="flex gap-2 mt-2 pt-3 border-t border-slate-100">
+                        <button onclick="abrirModalConcluir(${os.id})" class="flex-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 py-2 rounded-lg text-sm font-semibold transition-colors flex justify-center items-center gap-1.5"><i class="ph-bold ph-check"></i> Finalizar</button>
+                        <button onclick="abrirModalImprimir(${os.id})" class="w-10 h-10 flex justify-center items-center bg-slate-50 hover:bg-slate-100 text-slate-500 rounded-lg transition-colors"><i class="ph-bold ph-printer"></i></button>
+                    </div>`;
             } else if (os.status === 'concluido') {
                 cC++;
-                actions = `<div class="os-actions" style="justify-content:space-between; color:var(--text-muted); font-size:0.75rem;">
-                    <span>R$ ${os.valor}</span>
-                    <span>Entregue</span>
-                </div>`;
+                statusBadge = '<span class="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider">Pronto</span>';
+                actions = `
+                    <div class="flex justify-between items-center mt-2 pt-3 border-t border-slate-100">
+                        <div class="font-bold text-emerald-600">R$ ${os.valor}</div>
+                        <button onclick="abrirModalImprimir(${os.id})" class="w-10 h-10 flex justify-center items-center bg-slate-50 hover:bg-slate-100 text-slate-500 rounded-lg transition-colors"><i class="ph-bold ph-printer"></i></button>
+                    </div>`;
             }
 
             card.innerHTML = `
-                <div class="os-id">OS #${os.id}</div>
-                <div class="os-equipamento">${os.equipamento}</div>
-                <div class="os-cliente">👤 ${os.cliente_nome} <br>📞 ${os.cliente_telefone || 'Sem contato'}</div>
-                <div style="font-size:0.8rem; color:var(--text-secondary); margin-bottom:8px;"><strong>Defeito:</strong> ${os.problema}</div>
-                ${os.solucao ? `<div style="font-size:0.8rem; color:var(--accent); margin-bottom:8px;"><strong>Solução:</strong> ${os.solucao}</div>` : ''}
+                <div class="flex justify-between items-start">
+                    <span class="text-xs font-bold text-slate-400">#${os.id}</span>
+                    ${statusBadge}
+                </div>
+                <div>
+                    <h3 class="font-bold text-slate-800 text-lg leading-tight">${os.equipamento}</h3>
+                    <div class="flex items-center gap-1.5 text-slate-500 text-sm mt-1">
+                        <i class="ph-fill ph-user text-slate-400"></i> ${os.cliente_nome}
+                    </div>
+                </div>
+                <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-100 text-sm text-slate-600">
+                    <span class="font-semibold text-slate-700">Defeito:</span> ${os.problema || 'Não informado'}
+                </div>
+                ${os.solucao ? `<div class="bg-emerald-50/50 p-2.5 rounded-lg border border-emerald-100/50 text-sm text-emerald-700"><span class="font-semibold">Solução:</span> ${os.solucao}</div>` : ''}
                 ${actions}
             `;
 
-            if (os.status === 'recebido') colRecebido.appendChild(card);
-            if (os.status === 'em_andamento') colAndamento.appendChild(card);
-            if (os.status === 'concluido') colConcluido.appendChild(card);
+            if (os.status === 'recebido') colR.appendChild(card);
+            if (os.status === 'em_andamento') colA.appendChild(card);
+            if (os.status === 'concluido') colC.appendChild(card);
         });
 
-        badgeRecebido.textContent = cR;
-        badgeAndamento.textContent = cA;
-        badgeConcluido.textContent = cC;
+        document.getElementById('count-recebido').textContent = cR;
+        document.getElementById('count-andamento').textContent = cA;
+        document.getElementById('count-concluido').textContent = cC;
+        
+        // Atualiza Dashboard com OS
+        document.getElementById('dash-os-hoje').textContent = cR + cA + cC; // Total geral ou poderia ser só hoje
+        document.getElementById('dash-os-bancada').textContent = cA;
+
+        // Atualiza o Waffle
+        renderWaffleChart(ordens);
 
     } catch (e) { console.error(e); }
 }
 
 // Criar Nova OS
-document.getElementById('btnNovaOS').addEventListener('click', () => modalNovaOS.classList.add('ativo'));
-
 document.getElementById('btnSalvarNovaOS').addEventListener('click', async () => {
     const data = {
         cliente_nome: document.getElementById('osNome').value.trim(),
@@ -97,17 +328,21 @@ document.getElementById('btnSalvarNovaOS').addEventListener('click', async () =>
     };
     if(!data.cliente_nome || !data.equipamento) return alert('Preencha pelo menos Nome e Equipamento.');
     
+    const btn = document.getElementById('btnSalvarNovaOS');
+    btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i> Criando...';
+    
     await fetch('/api/os', {
         method: 'POST',
         headers: {'Content-Type':'application/json'},
         body: JSON.stringify(data)
     });
     
-    modalNovaOS.classList.remove('ativo');
+    document.getElementById('modalNovaOS').classList.add('hidden');
     document.getElementById('osNome').value = '';
     document.getElementById('osZap').value = '';
     document.getElementById('osEqp').value = '';
     document.getElementById('osProb').value = '';
+    btn.innerHTML = 'Criar OS';
     carregarOS();
 });
 
@@ -135,7 +370,7 @@ async function abrirModalConcluir(id) {
         select.innerHTML += `<option value="${t.id}">${t.nome}</option>`;
     });
     
-    modalConcluirOS.classList.add('ativo');
+    document.getElementById('modalConcluirOS').classList.remove('hidden');
 }
 
 document.getElementById('btnSalvarConclusao').addEventListener('click', async () => {
@@ -145,134 +380,193 @@ document.getElementById('btnSalvarConclusao').addEventListener('click', async ()
     
     if(!tecnico_id || !valor) return alert('Preencha Técnico e Valor.');
     
+    const btn = document.getElementById('btnSalvarConclusao');
+    btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i> Faturando...';
+    
     await fetch(`/api/os/${osAtualConcluir}/concluir`, {
         method: 'POST',
         headers: {'Content-Type':'application/json'},
         body: JSON.stringify({ solucao, tecnico_id, valor: parseFloat(valor.replace(',','.')) })
     });
     
-    modalConcluirOS.classList.remove('ativo');
+    document.getElementById('modalConcluirOS').classList.add('hidden');
     document.getElementById('concSolucao').value = '';
     document.getElementById('concValor').value = '';
+    btn.innerHTML = 'Faturar';
     carregarOS();
 });
 
 // ==================== EQUIPE ====================
 async function loadEquipe() {
-    const lista = document.getElementById('listaTecnicos');
-    lista.innerHTML = 'Carregando...';
+    const grid = document.getElementById('grid-tecnicos');
+    grid.innerHTML = '<p class="text-slate-400">Carregando...</p>';
     try {
         const res = await fetch('/api/tecnicos');
         const tecnicos = await res.json();
-        lista.innerHTML = '';
+        grid.innerHTML = '';
         tecnicos.forEach(t => {
-            lista.innerHTML += `<li style="background:var(--bg-elevated); padding:10px 15px; border-radius:8px; display:flex; justify-content:space-between;">
-                <span>${t.nome} <small style="color:var(--accent)">(${t.comissao}% comissão)</small></span>
-                <button style="background:none; border:none; color:var(--danger); cursor:pointer;" onclick="deletarTecnico(${t.id})">Excluir</button>
-            </li>`;
+            grid.innerHTML += `
+                <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col items-center text-center relative group overflow-hidden">
+                    <div class="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onclick="deletarTecnico(${t.id})" class="text-slate-300 hover:text-rose-500 transition-colors"><i class="ph-fill ph-trash text-lg"></i></button>
+                    </div>
+                    <div class="w-16 h-16 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-2xl mb-4 shrink-0">
+                        <i class="ph-fill ph-user"></i>
+                    </div>
+                    <h3 class="font-bold text-slate-800 text-lg">${t.nome}</h3>
+                    <p class="text-indigo-600 font-medium text-sm mt-1 bg-indigo-50 px-3 py-1 rounded-full">${t.comissao}% de Comissão</p>
+                </div>
+            `;
         });
     } catch(e){}
 }
+
 document.getElementById('btnAddTecnico').addEventListener('click', async () => {
     const nome = document.getElementById('inputNomeTecnico').value.trim();
     const comissao = document.getElementById('inputComissaoTecnico').value.trim();
     if(!nome) return;
+    
+    const btn = document.getElementById('btnAddTecnico');
+    btn.innerHTML = '...';
+    
     await fetch('/api/tecnicos', {
         method: 'POST',
         headers: {'Content-Type':'application/json'},
         body: JSON.stringify({ nome, comissao: comissao || 0 })
     });
+    
     document.getElementById('inputNomeTecnico').value = '';
     document.getElementById('inputComissaoTecnico').value = '';
+    document.getElementById('modalNovoTecnico').classList.add('hidden');
+    btn.innerHTML = 'Cadastrar';
     loadEquipe();
 });
+
 async function deletarTecnico(id) {
-    if(confirm('Apagar técnico?')) {
+    if(confirm('Tem certeza que deseja apagar este técnico?')) {
         await fetch(`/api/tecnicos/${id}`, {method: 'DELETE'});
         loadEquipe();
     }
 }
 
-// ==================== FINANCEIRO ====================
-let chartInstance = null;
-async function loadFinanceiro() {
-    const res = await fetch('/api/financeiro/dashboard');
-    const transacoes = await res.json();
-    
-    let fat = 0, desp = 0;
-    const labels = [];
-    const dadosRec = [];
-    const dadosDesp = [];
-    
-    // Simplificando pra demonstração: agrupar por data real
-    const dictRec = {}; const dictDesp = {};
-    transacoes.forEach(t => {
-        const v = parseFloat(t.valor);
-        if(t.tipo === 'receita') { fat += v; dictRec[t.data] = (dictRec[t.data]||0) + v; }
-        if(t.tipo === 'despesa') { desp += v; dictDesp[t.data] = (dictDesp[t.data]||0) + v; }
-    });
-    
-    document.getElementById('finFaturamento').textContent = `R$ ${fat.toFixed(2).replace('.',',')}`;
-    document.getElementById('finDespesas').textContent = `R$ ${desp.toFixed(2).replace('.',',')}`;
-    const lucro = fat - desp;
-    document.getElementById('finLucro').textContent = `R$ ${lucro.toFixed(2).replace('.',',')}`;
-    document.getElementById('finLucro').style.color = lucro >= 0 ? 'var(--accent)' : 'var(--danger)';
-
-    // Gráfico ultimos 7 dias
-    for(let i=6; i>=0; i--) {
-        const d = new Date(); d.setDate(d.getDate()-i);
-        const dStr = d.toISOString().split('T')[0];
-        labels.push(dStr.split('-').reverse().slice(0,2).join('/'));
-        dadosRec.push(dictRec[dStr] || 0);
-        dadosDesp.push(dictDesp[dStr] || 0);
-    }
-
-    const ctx = document.getElementById('financeChart').getContext('2d');
-    if (chartInstance) chartInstance.destroy();
-    
-    Chart.defaults.color = '#A0A0A0';
-    Chart.defaults.font.family = "'Inter', sans-serif";
-    chartInstance = new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: labels,
-          datasets: [
-            { label: 'Receita', data: dadosRec, borderColor: '#6DEAED', backgroundColor: 'rgba(109,234,237,0.1)', fill: true, tension: 0.4 },
-            { label: 'Despesa', data: dadosDesp, borderColor: '#FF6B6B', backgroundColor: 'transparent', fill: false, tension: 0.4 }
-          ]
-        },
-        options: { responsive: true, maintainAspectRatio: false }
-    });
+// ==================== CONFIGURAÇÕES ====================
+async function loadConfig() {
+    try {
+        const resNome = await fetch('/api/configuracoes/nome');
+        const dataNome = await resNome.json();
+        document.getElementById('config-nome-negocio').value = dataNome.nome;
+    } catch(e) {}
 }
 
-document.getElementById('btnAddDespesa').addEventListener('click', async () => {
-    const descricao = document.getElementById('inputDespesaDesc').value.trim();
-    const valor = document.getElementById('inputDespesaValor').value.trim();
-    if(!descricao || !valor) return;
-    const data = new Date().toISOString().split('T')[0];
-    await fetch('/api/despesas', {
+document.getElementById('btnSalvarConfigGeral').addEventListener('click', async () => {
+    const nome = document.getElementById('config-nome-negocio').value.trim();
+    const btn = document.getElementById('btnSalvarConfigGeral');
+    btn.textContent = 'Salvando...';
+    await fetch('/api/configuracoes/nome', {
         method: 'POST',
         headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ descricao, valor: parseFloat(valor.replace(',','.')), data })
+        body: JSON.stringify({ nome })
     });
-    document.getElementById('inputDespesaDesc').value = '';
-    document.getElementById('inputDespesaValor').value = '';
-    loadFinanceiro();
+    setTimeout(() => { btn.textContent = 'Salvar Alterações'; }, 500);
 });
 
-// Setup Inicial
+// ==================== IMPRESSÃO ====================
+async function abrirModalImprimir(id) {
+    const res = await fetch('/api/os');
+    const todas = await res.json();
+    const os = todas.find(o => o.id === id);
+    if (!os) return;
+
+    const configRes = await fetch('/api/configuracoes/nome');
+    const configData = await configRes.json();
+    const nomeNegocio = configData.nome || 'Assistência Técnica';
+
+    const statusMap = { recebido: 'Recebido', em_andamento: 'Em Bancada', concluido: 'Concluído' };
+    const statusLabel = statusMap[os.status] || os.status;
+    const dataCriacao = os.data_criacao || new Date().toLocaleDateString('pt-BR');
+
+    const html = `
+      <div class="print-header">
+        <div class="print-logo">
+          ${nomeNegocio}
+          <small>Ordem de Serviço Oficial</small>
+        </div>
+        <div class="print-os-num">
+          #${os.id}
+          <small>Data: ${dataCriacao}</small>
+        </div>
+      </div>
+
+      <div class="print-section">
+        <div class="print-section-title">Dados do Cliente</div>
+        <div class="print-row">
+          <div class="print-field"><label>Nome</label><span>${os.cliente_nome}</span></div>
+          <div class="print-field"><label>WhatsApp</label><span>${os.cliente_telefone || 'Não informado'}</span></div>
+        </div>
+      </div>
+
+      <div class="print-section">
+        <div class="print-section-title">Equipamento</div>
+        <div class="print-row">
+          <div class="print-field"><label>Modelo</label><span>${os.equipamento}</span></div>
+          <div class="print-field"><label>Status</label><span>${statusLabel}</span></div>
+        </div>
+      </div>
+
+      <div class="print-section">
+        <div class="print-section-title">Defeito Relatado</div>
+        <div class="print-problema">${os.problema || 'Nenhum problema descrito.'}</div>
+      </div>
+
+      ${os.solucao ? `
+      <div class="print-section">
+        <div class="print-section-title">Solução Aplicada</div>
+        <div class="print-solucao">${os.solucao}</div>
+      </div>` : ''}
+
+      <div class="print-footer">
+        <div class="print-assinatura">
+          <div class="print-assinatura-linha"></div>
+          <small>Assinatura do Cliente</small>
+        </div>
+        ${os.valor ? `
+        <div class="print-valor-destaque">
+          R$ ${parseFloat(os.valor).toFixed(2).replace('.',',')}
+          <small>Valor Total</small>
+        </div>` : '<div></div>'}
+        <div class="print-assinatura">
+          <div class="print-assinatura-linha"></div>
+          <small>Assinatura do Técnico</small>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('printArea').innerHTML = html;
+    
+    // Pequeno delay para garantir o render antes da impressora
+    setTimeout(() => {
+        window.print();
+    }, 100);
+}
+
+// ==================== INICIALIZAÇÃO ====================
 (() => {
     carregarOS();
-    // Atualiza status do bot (IPC se estiver rodando no Electron)
+    loadFinanceiroE_Dashboard();
+    
+    // Conexão IPC com o Bot do Electron
     if(window.require) {
         const { ipcRenderer } = require('electron');
         ipcRenderer.on('update-status', (event, data) => {
             if(data.type === 'bot') {
-                const dot = document.getElementById('statusDot');
-                const text = document.getElementById('statusText');
+                const dot = document.getElementById('bot-status-dot');
+                const text = document.getElementById('bot-status-text');
                 text.textContent = data.msg;
-                if(data.msg.includes('ONLINE')) dot.className = 'status-dot online';
-                else dot.className = 'status-dot';
+                if(data.msg.includes('ONLINE')) {
+                    dot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]';
+                } else {
+                    dot.className = 'w-2.5 h-2.5 rounded-full bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.6)]';
+                }
             }
         });
     }
