@@ -256,6 +256,15 @@ module.exports = async function startApp(mainWindow) {
             const transId = await getNextId('transacoes');
             await dbRun("INSERT INTO transacoes (id, os_id, tipo, valor, data, descricao) VALUES (?, ?, 'receita', ?, ?, ?)",
                 [transId, osId, parseFloat(valor), hoje, `OS #${osId} - ${os.equipamento}`]);
+            
+            // Gerar despesa de comissão
+            const tecnico = await dbGet("SELECT comissao, nome FROM tecnicos WHERE id = ?", [tecnico_id]);
+            if (tecnico && tecnico.comissao > 0) {
+                const despId = await getNextId('transacoes');
+                const valorComissao = parseFloat(valor) * (tecnico.comissao / 100);
+                await dbRun("INSERT INTO transacoes (id, os_id, tipo, valor, data, descricao) VALUES (?, ?, 'despesa', ?, ?, ?)",
+                    [despId, osId, valorComissao, hoje, `Comissão OS #${osId} - Tec: ${tecnico.nome}`]);
+            }
         }
 
         if (os.cliente_telefone) {
@@ -288,6 +297,34 @@ module.exports = async function startApp(mainWindow) {
     // --- Rotas Técnicos ---
     app.get('/api/tecnicos', async (req, res) => {
         res.json(await dbAll("SELECT * FROM tecnicos"));
+    });
+
+    app.get('/api/tecnicos/comissoes', async (req, res) => {
+        const { mes, ano } = req.query; // Opcional
+        const dataAtual = new Date();
+        const mm = mes ? parseInt(mes) : dataAtual.getMonth() + 1;
+        const yyyy = ano ? parseInt(ano) : dataAtual.getFullYear();
+        const mmStr = mm.toString().padStart(2, '0');
+        const prefixoData = `${yyyy}-${mmStr}-`;
+        
+        const query = `
+            SELECT t.id, t.nome, t.comissao,
+                COUNT(os.id) as total_os,
+                SUM(os.valor) as faturamento_gerado,
+                SUM(os.valor - IFNULL(exp.total_despesas, 0)) as faturamento_liquido,
+                SUM((os.valor - IFNULL(exp.total_despesas, 0)) * (t.comissao / 100.0)) as valor_receber
+            FROM tecnicos t
+            LEFT JOIN ordens_servico os ON os.tecnico_id = t.id AND os.status = 'concluido' AND os.data_criacao LIKE ?
+            LEFT JOIN (
+                SELECT os_id, SUM(valor) AS total_despesas
+                FROM transacoes
+                WHERE tipo = 'despesa'
+                GROUP BY os_id
+            ) exp ON exp.os_id = os.id
+            GROUP BY t.id, t.nome, t.comissao;
+        `;
+        const resultados = await dbAll(query, [`${prefixoData}%`]);
+        res.json(resultados);
     });
     app.post('/api/tecnicos', async (req, res) => {
         const nextId = await getNextId('tecnicos');

@@ -70,6 +70,10 @@
                 <i class="ph-fill ph-users text-2xl"></i>
                 <span class="ml-3 font-medium hidden md:block group-[.active]:font-bold group-[.active]:text-indigo-400 text-left w-full">Técnicos</span>
             </button>
+            <button class="nav-btn w-full flex items-center px-4 py-3 hover:bg-slate-800 hover:text-white rounded-xl transition-colors group" data-target="comissoes-view">
+                <i class="ph-fill ph-money text-2xl"></i>
+                <span class="ml-3 font-medium hidden md:block group-[.active]:font-bold group-[.active]:text-indigo-400 text-left w-full">Comissões</span>
+            </button>
             <button class="nav-btn w-full flex items-center px-4 py-3 hover:bg-slate-800 hover:text-white rounded-xl transition-colors group" data-target="relatorios-view">
                 <i class="ph-fill ph-chart-line-up text-2xl"></i>
                 <span class="ml-3 font-medium hidden md:block group-[.active]:font-bold group-[.active]:text-indigo-400 text-left w-full">Relatórios</span>
@@ -206,6 +210,23 @@
             </div>
             
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 shrink-0" id="grid-tecnicos">
+                <!-- Preenchido via JS -->
+            </div>
+        </section>
+
+        <!-- VIEW: COMISSÕES -->
+        <section id="comissoes-view" class="tab-content flex-col h-full overflow-y-auto p-6 md:p-10">
+            <div class="flex flex-col md:flex-row md:justify-between md:items-end mb-8 shrink-0 gap-4">
+                <div>
+                    <h1 class="text-3xl font-bold text-slate-800">Comissões da Equipe</h1>
+                    <p class="text-slate-500 mt-1">Acompanhamento de OS concluídas no mês atual.</p>
+                </div>
+                <button onclick="loadComissoes()" class="bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors shadow-sm">
+                    <i class="ph-bold ph-arrows-clockwise"></i> Atualizar
+                </button>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 shrink-0 pb-10" id="grid-comissoes">
                 <!-- Preenchido via JS -->
             </div>
         </section>

@@ -17,6 +17,7 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
         // Carregar dados dependendo da aba
         if (targetId === 'os-view') carregarOS();
         if (targetId === 'tecnicos-view') loadEquipe();
+        if (targetId === 'comissoes-view') loadComissoes();
         if (targetId === 'relatorios-view' || targetId === 'dashboard-view') loadFinanceiroE_Dashboard();
         if (targetId === 'config-view') loadConfig();
     });
@@ -496,6 +497,63 @@ async function deletarTecnico(id) {
     if(confirm('Tem certeza que deseja apagar este técnico?')) {
         await fetch(`/api/tecnicos/${id}`, {method: 'DELETE'});
         loadEquipe();
+    }
+}
+
+// ==================== COMISSÕES ====================
+async function loadComissoes() {
+    const grid = document.getElementById('grid-comissoes');
+    grid.innerHTML = '<div class="col-span-3 text-center py-10"><i class="ph ph-spinner animate-spin text-3xl text-indigo-500 mb-2"></i><p class="text-slate-500">Calculando comissões...</p></div>';
+    
+    try {
+        const res = await fetch('/api/tecnicos/comissoes');
+        const comissoes = await res.json();
+        
+        if (comissoes.length === 0) {
+            grid.innerHTML = '<div class="col-span-3 text-center text-slate-400 py-10">Nenhum técnico cadastrado.</div>';
+            return;
+        }
+
+        grid.innerHTML = '';
+        comissoes.forEach(c => {
+            const faturamento = c.faturamento_gerado || 0;
+            const aReceber = c.valor_receber || 0;
+            const osCount = c.total_os || 0;
+            
+            grid.innerHTML += `
+                <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 hover:border-indigo-200 hover:shadow-md transition-all">
+                    <div class="flex items-center gap-4 mb-5 border-b border-slate-100 pb-4">
+                        <div class="w-12 h-12 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center text-xl shrink-0">
+                            <i class="ph-fill ph-user-focus"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-slate-800 text-lg">${c.nome}</h3>
+                            <p class="text-slate-500 text-sm font-medium">Comissão Base: <span class="text-indigo-600">${c.comissao}%</span></p>
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-4">
+                        <div class="flex justify-between items-center">
+                            <span class="text-slate-500 text-sm">Serviços Concluídos:</span>
+                            <span class="font-semibold text-slate-700">${osCount} OS</span>
+                        </div>
+                        
+                        <div class="flex justify-between items-center">
+                            <span class="text-slate-500 text-sm">Faturamento Gerado:</span>
+                            <span class="font-medium text-emerald-600">R$ ${faturamento.toFixed(2).replace('.', ',')}</span>
+                        </div>
+                        
+                        <div class="pt-4 border-t border-slate-100 flex justify-between items-end">
+                            <span class="text-slate-700 font-medium">A Receber no Mês:</span>
+                            <span class="text-2xl font-bold text-indigo-600">R$ ${aReceber.toFixed(2).replace('.', ',')}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+    } catch(e) {
+        console.error(e);
+        grid.innerHTML = '<p class="text-rose-500">Erro ao carregar comissões.</p>';
     }
 }
 
