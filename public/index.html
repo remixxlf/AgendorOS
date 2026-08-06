@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gestor OS</title>
+    <link rel="icon" type="image/png" href="icon.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
@@ -101,8 +102,18 @@
         
         <!-- VIEW: DASHBOARD -->
         <section id="dashboard-view" class="tab-content active flex-col h-full overflow-y-auto p-6 md:p-10">
-            <div class="flex justify-between items-center mb-8 shrink-0">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 shrink-0">
                 <h1 class="text-3xl font-bold text-slate-800">Visão Geral</h1>
+                <!-- Filtro de Ciclo Mensal -->
+                <div class="flex items-center gap-3 bg-white border border-slate-200 px-4 py-2 rounded-xl shadow-sm shrink-0">
+                    <button onclick="alterarCicloMensal(-1)" class="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded-lg transition-all" title="Mês Anterior">
+                        <i class="ph-bold ph-caret-left text-lg"></i>
+                    </button>
+                    <span id="nome-ciclo-mensal-dash" class="font-semibold text-slate-700 min-w-[140px] text-center text-sm">Carregando...</span>
+                    <button onclick="alterarCicloMensal(1)" class="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded-lg transition-all" title="Próximo Mês">
+                        <i class="ph-bold ph-caret-right text-lg"></i>
+                    </button>
+                </div>
             </div>
             
             <!-- Cards (OS Hoje, Receita Mês, etc) -->
@@ -216,14 +227,26 @@
 
         <!-- VIEW: COMISSÕES -->
         <section id="comissoes-view" class="tab-content flex-col h-full overflow-y-auto p-6 md:p-10">
-            <div class="flex flex-col md:flex-row md:justify-between md:items-end mb-8 shrink-0 gap-4">
+            <div class="flex flex-col md:flex-row md:justify-between md:items-center mb-8 shrink-0 gap-4">
                 <div>
                     <h1 class="text-3xl font-bold text-slate-800">Comissões da Equipe</h1>
-                    <p class="text-slate-500 mt-1">Acompanhamento de OS concluídas no mês atual.</p>
+                    <p class="text-slate-500 mt-1">Acompanhamento de OS concluídas no ciclo selecionado.</p>
                 </div>
-                <button onclick="loadComissoes()" class="bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors shadow-sm">
-                    <i class="ph-bold ph-arrows-clockwise"></i> Atualizar
-                </button>
+                <div class="flex items-center gap-4 shrink-0">
+                    <!-- Filtro de Ciclo Mensal -->
+                    <div class="flex items-center gap-3 bg-white border border-slate-200 px-4 py-2 rounded-xl shadow-sm">
+                        <button onclick="alterarCicloMensal(-1)" class="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded-lg transition-all" title="Mês Anterior">
+                            <i class="ph-bold ph-caret-left text-lg"></i>
+                        </button>
+                        <span id="nome-ciclo-mensal-comis" class="font-semibold text-slate-700 min-w-[140px] text-center text-sm">Carregando...</span>
+                        <button onclick="alterarCicloMensal(1)" class="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded-lg transition-all" title="Próximo Mês">
+                            <i class="ph-bold ph-caret-right text-lg"></i>
+                        </button>
+                    </div>
+                    <button onclick="loadComissoes()" class="bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 px-4 py-2.5 rounded-xl font-medium flex items-center gap-2 transition-colors shadow-sm">
+                        <i class="ph-bold ph-arrows-clockwise"></i> Atualizar
+                    </button>
+                </div>
             </div>
             
             <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 shrink-0 pb-10" id="grid-comissoes">
@@ -233,8 +256,20 @@
 
         <!-- VIEW: RELATÓRIOS -->
         <section id="relatorios-view" class="tab-content flex-col h-full overflow-y-auto p-6 md:p-10">
-            <div class="flex justify-between items-center mb-8 shrink-0">
-                <h1 class="text-3xl font-bold text-slate-800">Lançamentos Financeiros</h1>
+            <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-8 shrink-0">
+                <div class="flex flex-col sm:flex-row sm:items-center gap-4">
+                    <h1 class="text-3xl font-bold text-slate-800">Lançamentos Financeiros</h1>
+                    <!-- Filtro de Ciclo Mensal -->
+                    <div class="flex items-center gap-3 bg-white border border-slate-200 px-4 py-2 rounded-xl shadow-sm shrink-0">
+                        <button onclick="alterarCicloMensal(-1)" class="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded-lg transition-all" title="Mês Anterior">
+                            <i class="ph-bold ph-caret-left text-lg"></i>
+                        </button>
+                        <span id="nome-ciclo-mensal-rel" class="font-semibold text-slate-700 min-w-[140px] text-center text-sm">Carregando...</span>
+                        <button onclick="alterarCicloMensal(1)" class="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded-lg transition-all" title="Próximo Mês">
+                            <i class="ph-bold ph-caret-right text-lg"></i>
+                        </button>
+                    </div>
+                </div>
                 <div class="flex gap-3">
                     <button onclick="document.getElementById('modalNovaReceita').classList.remove('hidden')" class="bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-2.5 rounded-xl font-medium flex items-center gap-2 transition-transform active:scale-95 shadow-sm">
                         <i class="ph-bold ph-plus"></i> Receita Avulsa

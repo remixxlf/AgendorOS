@@ -1,13 +1,15 @@
 {
   "name": "GestorOS",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Sistema de Gestao de OS e Erp's",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "build": "electron-builder --win --x64"
+    "build": "electron-builder --win --x64",
+    "build:protected": "node scripts/build-protected.js"
   },
   "dependencies": {
+    "bytenode": "^1.5.5",
     "cors": "^2.8.6",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
@@ -20,15 +22,22 @@
   },
   "devDependencies": {
     "electron": "^29.4.6",
-    "electron-builder": "^24.13.3"
+    "electron-builder": "^24.13.3",
+    "javascript-obfuscator": "^4.1.1"
   },
   "build": {
     "appId": "com.agendamentos.app",
     "productName": "GestorOS",
     "npmRebuild": false,
+    "asar": true,
+    "asarUnpack": [
+      "node_modules/sqlite3/**",
+      "node_modules/bytenode/**"
+    ],
     "win": {
       "target": "nsis",
-      "icon": "build/icon.ico"
+      "icon": "build/icon.ico",
+      "signAndEditExecutable": false
     },
     "nsis": {
       "oneClick": true,
@@ -39,8 +48,12 @@
     },
     "files": [
       "**/*",
+      "!src/**",
+      "!scripts/**",
+      "!.build-tmp/**",
       "!node_modules/electron",
-      "!node_modules/electron-builder"
+      "!node_modules/electron-builder",
+      "!node_modules/javascript-obfuscator"
     ]
   }
 }

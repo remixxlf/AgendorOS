@@ -1,3 +1,66 @@
+// ==================== CONTROLE DE CICLO MENSAL ====================
+const hojeData = new Date();
+let currentCycle = {
+    mes: hojeData.getMonth() + 1, // 1-12
+    ano: hojeData.getFullYear()
+};
+
+const NOMES_MESES = [
+    "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+    "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+];
+
+function atualizarTextoCiclo() {
+    const texto = `${NOMES_MESES[currentCycle.mes - 1]} de ${currentCycle.ano}`;
+    const elDash = document.getElementById('nome-ciclo-mensal-dash');
+    const elRel = document.getElementById('nome-ciclo-mensal-rel');
+    const elComis = document.getElementById('nome-ciclo-mensal-comis');
+    if (elDash) elDash.textContent = texto;
+    if (elRel) elRel.textContent = texto;
+    if (elComis) elComis.textContent = texto;
+}
+
+async function alterarCicloMensal(delta) {
+    let novoMes = currentCycle.mes + delta;
+    let novoAno = currentCycle.ano;
+    if (novoMes > 12) {
+        novoMes = 1;
+        novoAno++;
+    } else if (novoMes < 1) {
+        novoMes = 12;
+        novoAno--;
+    }
+    currentCycle.mes = novoMes;
+    currentCycle.ano = novoAno;
+    
+    atualizarTextoCiclo();
+    await loadFinanceiroE_Dashboard();
+    await carregarOS(); // Atualiza contadores do dashboard e o gráfico waffle
+    loadComissoes(); // Atualiza a aba de comissões também
+}
+
+function formatarDataHora(dataString) {
+    if (!dataString) return "";
+    try {
+        const dateObj = new Date(dataString);
+        if (isNaN(dateObj.getTime())) {
+            return dataString;
+        }
+        const dia = dateObj.getDate().toString().padStart(2, '0');
+        const mes = (dateObj.getMonth() + 1).toString().padStart(2, '0');
+        const ano = dateObj.getFullYear();
+        const horas = dateObj.getHours().toString().padStart(2, '0');
+        const minutos = dateObj.getMinutes().toString().padStart(2, '0');
+        
+        if (dataString.length <= 10) {
+            return `${dia}/${mes}/${ano}`;
+        }
+        return `${dia}/${mes}/${ano} ${horas}:${minutos}`;
+    } catch (e) {
+        return dataString;
+    }
+}
+
 // ==================== NAVEGAÇÃO ====================
 document.querySelectorAll('.nav-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
@@ -28,34 +91,25 @@ let chartInstance = null;
 
 async function loadFinanceiroE_Dashboard() {
     try {
-        const res = await fetch('/api/financeiro/dashboard');
+        const res = await fetch(`/api/financeiro/dashboard?mes=${currentCycle.mes}&ano=${currentCycle.ano}`);
         const transacoes = await res.json();
         
-        let fatTotal = 0, fatMes = 0, despMes = 0;
-        const labels = [];
-        const dadosRec = [];
-        const dadosDesp = [];
+        let fatMes = 0, despMes = 0;
         
         // Agrupar por data (simplificado)
         const dictRec = {}; const dictDesp = {};
-        const hoje = new Date();
-        const mesAtual = hoje.getMonth();
-        const anoAtual = hoje.getFullYear();
 
         transacoes.forEach(t => {
             const v = parseFloat(t.valor);
-            const dataT = new Date(t.data);
             
-            // Faturamento Total (Toda vida) - usado em OS/Lucro? Nao, fatMês
-            if (t.tipo === 'receita') fatTotal += v;
+            if (t.tipo === 'receita') fatMes += v;
+            if (t.tipo === 'despesa') despMes += v;
             
-            if (dataT.getMonth() === mesAtual && dataT.getFullYear() === anoAtual) {
-                if (t.tipo === 'receita') fatMes += v;
-                if (t.tipo === 'despesa') despMes += v;
+            const dataDia = t.data ? t.data.split('T')[0] : '';
+            if (dataDia) {
+                if(t.tipo === 'receita') dictRec[dataDia] = (dictRec[dataDia]||0) + v;
+                if(t.tipo === 'despesa') dictDesp[dataDia] = (dictDesp[dataDia]||0) + v;
             }
-
-            if(t.tipo === 'receita') dictRec[t.data] = (dictRec[t.data]||0) + v;
-            if(t.tipo === 'despesa') dictDesp[t.data] = (dictDesp[t.data]||0) + v;
         });
         
         // Atualizar Dashboard
@@ -65,11 +119,15 @@ async function loadFinanceiroE_Dashboard() {
         lucroEl.textContent = `R$ ${lucro.toFixed(2).replace('.',',')}`;
         lucroEl.className = lucro >= 0 ? 'text-3xl font-bold text-indigo-600 relative' : 'text-3xl font-bold text-rose-600 relative';
 
-        // Gráfico últimos 15 dias (ApexCharts)
-        for(let i=14; i>=0; i--) {
-            const d = new Date(); d.setDate(d.getDate()-i);
-            const dStr = d.toISOString().split('T')[0];
-            labels.push(dStr.split('-').reverse().slice(0,2).join('/'));
+        // Gráfico do mês inteiro selecionado
+        const labels = [];
+        const dadosRec = [];
+        const dadosDesp = [];
+        const numDias = new Date(currentCycle.ano, currentCycle.mes, 0).getDate();
+        
+        for (let dia = 1; dia <= numDias; dia++) {
+            const dStr = `${currentCycle.ano}-${currentCycle.mes.toString().padStart(2, '0')}-${dia.toString().padStart(2, '0')}`;
+            labels.push(`${dia.toString().padStart(2, '0')}/${currentCycle.mes.toString().padStart(2, '0')}`);
             dadosRec.push(dictRec[dStr] || 0);
             dadosDesp.push(dictDesp[dStr] || 0);
         }
@@ -80,20 +138,16 @@ async function loadFinanceiroE_Dashboard() {
         const tbody = document.getElementById('tabela-transacoes');
         tbody.innerHTML = '';
         if (transacoes.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4" class="px-6 py-4 text-center text-slate-400">Nenhuma movimentação</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-4 text-center text-slate-400">Nenhuma movimentação neste período</td></tr>';
         } else {
-            [...transacoes].reverse().forEach(t => {
+            transacoes.forEach(t => {
                 const isDespesa = t.tipo === 'despesa';
                 const color = isDespesa ? 'text-rose-600' : 'text-emerald-600';
                 const bgIcon = isDespesa ? 'bg-rose-100 text-rose-600' : 'bg-emerald-100 text-emerald-600';
                 const icon = isDespesa ? 'ph-arrow-down-right' : 'ph-arrow-up-right';
                 const sign = isDespesa ? '-' : '+';
                 
-                let dateStr = t.data;
-                if(dateStr.includes('-')) {
-                    const parts = dateStr.split('-');
-                    if(parts.length === 3) dateStr = `${parts[2]}/${parts[1]}/${parts[0]}`;
-                }
+                const dateStr = formatarDataHora(t.data);
 
                 tbody.innerHTML += `
                     <tr class="hover:bg-slate-50 transition-colors">
@@ -171,6 +225,17 @@ function renderWaffleChart(ordens) {
     
     ordens.forEach(o => {
         if (o.status !== 'concluido') return;
+        
+        // Filtrar pelo ciclo mensal selecionado
+        if (o.data_criacao) {
+            const dateObj = new Date(o.data_criacao);
+            if (!isNaN(dateObj.getTime())) {
+                if (dateObj.getMonth() + 1 !== currentCycle.mes || dateObj.getFullYear() !== currentCycle.ano) {
+                    return;
+                }
+            }
+        }
+        
         total++;
         const cat = o.categoria || 'outros';
         if (cat === 'smartphone') smart++;
@@ -227,7 +292,7 @@ document.getElementById('btnAddDespesa').addEventListener('click', async () => {
     const valor = document.getElementById('inputDespesaValor').value.trim();
     if(!descricao || !valor) return;
     
-    const data = new Date().toISOString().split('T')[0];
+    const data = new Date().toISOString();
     await fetch('/api/despesas', {
         method: 'POST',
         headers: {'Content-Type':'application/json'},
@@ -246,7 +311,7 @@ document.getElementById('btnAddReceita').addEventListener('click', async () => {
     const valor = document.getElementById('inputReceitaValor').value.trim();
     if(!descricao || !valor) return;
     
-    const data = new Date().toISOString().split('T')[0];
+    const data = new Date().toISOString();
     await fetch('/api/receitas', {
         method: 'POST',
         headers: {'Content-Type':'application/json'},
@@ -506,7 +571,7 @@ async function loadComissoes() {
     grid.innerHTML = '<div class="col-span-3 text-center py-10"><i class="ph ph-spinner animate-spin text-3xl text-indigo-500 mb-2"></i><p class="text-slate-500">Calculando comissões...</p></div>';
     
     try {
-        const res = await fetch('/api/tecnicos/comissoes');
+        const res = await fetch(`/api/tecnicos/comissoes?mes=${currentCycle.mes}&ano=${currentCycle.ano}`);
         const comissoes = await res.json();
         
         if (comissoes.length === 0) {
@@ -626,7 +691,7 @@ async function abrirModalImprimir(id) {
 
     const statusMap = { recebido: 'Recebido', em_andamento: 'Em Bancada', concluido: 'Concluído' };
     const statusLabel = statusMap[os.status] || os.status;
-    const dataCriacao = os.data_criacao || new Date().toLocaleDateString('pt-BR');
+    const dataCriacao = formatarDataHora(os.data_criacao);
 
     const html = `
       <div class="print-header">
@@ -694,6 +759,7 @@ async function abrirModalImprimir(id) {
 
 // ==================== INICIALIZAÇÃO ====================
 (() => {
+    atualizarTextoCiclo();
     carregarOS();
     loadFinanceiroE_Dashboard();
     

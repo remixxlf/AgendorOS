@@ -8,6 +8,7 @@ function createWindow() {
         width: 1000,
         height: 700,
         title: 'Gestor OS - Servidor',
+        icon: path.join(__dirname, 'build', 'icon.ico'),
         backgroundColor: '#0f0f0f',
         webPreferences: {
             preload: path.join(__dirname, 'gui', 'preload.js'),
