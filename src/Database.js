@@ -63,6 +63,30 @@ class Database {
             CREATE TABLE IF NOT EXISTS configuracoes (id INTEGER PRIMARY KEY AUTOINCREMENT, chave TEXT UNIQUE, valor TEXT);
         `);
 
+        await this._db.exec(`
+            CREATE TABLE IF NOT EXISTS produtos (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nome TEXT NOT NULL,
+                quantidade INTEGER DEFAULT 0,
+                preco_custo REAL DEFAULT 0,
+                preco_venda REAL DEFAULT 0,
+                data_criacao TEXT
+            );
+            CREATE TABLE IF NOT EXISTS os_produtos (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                os_id INTEGER NOT NULL,
+                produto_id INTEGER NOT NULL,
+                quantidade INTEGER NOT NULL DEFAULT 1,
+                preco_custo_aplicado REAL,
+                preco_venda_aplicado REAL,
+                FOREIGN KEY (os_id) REFERENCES ordens_servico(id),
+                FOREIGN KEY (produto_id) REFERENCES produtos(id)
+            );
+        `);
+        // Migração: adiciona coluna checklist se não existir
+        try { await this._db.run("ALTER TABLE ordens_servico ADD COLUMN checklist TEXT DEFAULT '{}'"); } catch(e) {}
+        this._logger.log('DB', 'Tabelas de estoque e checklist verificadas.');
+
         // Migração JSON → SQLite (legado)
         await this._migrarDadosLegados();
 
@@ -150,12 +174,7 @@ class Database {
         const backupFile = path.join(backupDir, `banco_os_backup_${timestamp}.sqlite`);
 
         try {
-            await new Promise((resolve, reject) => {
-                this._db.driver.backup(backupFile, (err) => {
-                    if (err) reject(err);
-                    else resolve();
-                });
-            });
+            await this._db.exec(`VACUUM INTO '${backupFile.replace(/'/g, "''")}'`);
             this._logger.log('BACKUP', `Backup criado: ${path.basename(backupFile)}`);
             await this._limparBackupsAntigos(backupDir, 7);
         } catch (err) {
@@ -274,6 +293,109 @@ class Database {
             await this.run("INSERT OR IGNORE INTO configuracoes (chave, valor) VALUES ('numero_dono', ?)", [process.env.NUMERO_DONO]);
             this._logger.log('CONFIG', 'NUMERO_DONO migrado do .env para o banco de dados.');
         }
+    }
+
+    // =====================================================================
+    // PRODUTOS (ESTOQUE)
+    // =====================================================================
+
+    async getAllProdutos() {
+        return await this.all('SELECT * FROM produtos ORDER BY nome ASC');
+    }
+
+    async createProduto({ nome, quantidade, preco_custo, preco_venda }) {
+        const nextId = await this.getNextId('produtos');
+        const hoje = new Date().toISOString();
+        await this.run(
+            'INSERT INTO produtos (id, nome, quantidade, preco_custo, preco_venda, data_criacao) VALUES (?, ?, ?, ?, ?, ?)',
+            [nextId, nome, quantidade || 0, preco_custo || 0, preco_venda || 0, hoje]
+        );
+        return nextId;
+    }
+
+    async updateProduto(id, { nome, quantidade, preco_custo, preco_venda }) {
+        await this.run(
+            'UPDATE produtos SET nome = ?, quantidade = ?, preco_custo = ?, preco_venda = ? WHERE id = ?',
+            [nome, quantidade, preco_custo, preco_venda, id]
+        );
+    }
+
+    async deleteProduto(id) {
+        await this.run('DELETE FROM produtos WHERE id = ?', [id]);
+    }
+
+    async ajustarEstoque(produtoId, qtd) {
+        // qtd positivo = entrada, negativo = saída
+        await this.run('UPDATE produtos SET quantidade = MAX(0, quantidade + ?) WHERE id = ?', [qtd, produtoId]);
+    }
+
+    // =====================================================================
+    // PEÇAS USADAS NA OS
+    // =====================================================================
+
+    async getProdutosOS(osId) {
+        return await this.all(
+            `SELECT op.*, p.nome FROM os_produtos op
+             JOIN produtos p ON p.id = op.produto_id
+             WHERE op.os_id = ?`,
+            [osId]
+        );
+    }
+
+    async addProdutoOS(osId, produtoId, quantidade) {
+        const produto = await this.get('SELECT * FROM produtos WHERE id = ?', [produtoId]);
+        if (!produto) throw new Error('Produto não encontrado');
+        if (produto.quantidade < quantidade) throw new Error('Estoque insuficiente');
+
+        const nextId = await this.getNextId('os_produtos');
+        await this.run(
+            'INSERT INTO os_produtos (id, os_id, produto_id, quantidade, preco_custo_aplicado, preco_venda_aplicado) VALUES (?, ?, ?, ?, ?, ?)',
+            [nextId, osId, produtoId, quantidade, produto.preco_custo, produto.preco_venda]
+        );
+        await this.ajustarEstoque(produtoId, -quantidade);
+        return nextId;
+    }
+
+    async getCustoTotalOS(osId) {
+        const rows = await this.all(
+            'SELECT SUM(quantidade * preco_custo_aplicado) as total FROM os_produtos WHERE os_id = ?',
+            [osId]
+        );
+        return rows[0]?.total || 0;
+    }
+
+    // =====================================================================
+    // TRANSAÇÕES
+    // =====================================================================
+
+    async beginTransaction() {
+        await this.run('BEGIN TRANSACTION;');
+    }
+
+    async commit() {
+        await this.run('COMMIT;');
+    }
+
+    async rollback() {
+        await this.run('ROLLBACK;');
+    }
+
+    // =====================================================================
+    // ROTINAS DE MANUTENÇÃO (Backup e Integridade)
+    // =====================================================================
+
+    async setTunnelUrl(url) {
+        const existe = await this.get("SELECT id FROM configuracoes WHERE chave = 'tunnel_url'");
+        if (existe) {
+            await this.run("UPDATE configuracoes SET valor = ? WHERE chave = 'tunnel_url'", [url]);
+        } else {
+            const nextId = await this.getNextId('configuracoes');
+            await this.run("INSERT INTO configuracoes (id, chave, valor) VALUES (?, 'tunnel_url', ?)", [nextId, url]);
+        }
+    }
+
+    async getTunnelUrl() {
+        return await this.getConfig('tunnel_url');
     }
 }
 

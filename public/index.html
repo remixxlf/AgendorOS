@@ -79,6 +79,14 @@
                 <i class="ph-fill ph-chart-line-up text-2xl"></i>
                 <span class="ml-3 font-medium hidden md:block group-[.active]:font-bold group-[.active]:text-indigo-400 text-left w-full">Relatórios</span>
             </button>
+            <button class="nav-btn w-full flex items-center px-4 py-3 hover:bg-slate-800 hover:text-white rounded-xl transition-colors group" data-target="estoque-view">
+                <i class="ph-fill ph-package text-2xl"></i>
+                <span class="ml-3 font-medium hidden md:block group-[.active]:font-bold group-[.active]:text-indigo-400 text-left w-full">Estoque</span>
+            </button>
+            <button class="nav-btn w-full flex items-center px-4 py-3 hover:bg-slate-800 hover:text-white rounded-xl transition-colors group" data-target="pdv-view">
+                <i class="ph-fill ph-shopping-cart text-2xl"></i>
+                <span class="ml-3 font-medium hidden md:block group-[.active]:font-bold group-[.active]:text-indigo-400 text-left w-full">Venda Rápida</span>
+            </button>
             <button class="nav-btn w-full flex items-center px-4 py-3 hover:bg-slate-800 hover:text-white rounded-xl transition-colors group" data-target="config-view">
                 <i class="ph-fill ph-gear text-2xl"></i>
                 <span class="ml-3 font-medium hidden md:block group-[.active]:font-bold group-[.active]:text-indigo-400 text-left w-full">Configurações</span>
@@ -165,13 +173,74 @@
 
         <!-- VIEW: ORDENS DE SERVIÇO (KANBAN) -->
         <section id="os-view" class="tab-content flex-col h-full overflow-hidden p-6 md:p-10">
-            <div class="flex justify-between items-center mb-8 shrink-0">
+            <!-- Cabeçalho: Título + Filtro Mensal + Botão Nova OS -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5 shrink-0">
                 <h1 class="text-3xl font-bold text-slate-800">Ordens de Serviço</h1>
-                <button onclick="document.getElementById('modalNovaOS').classList.remove('hidden')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-medium flex items-center gap-2 transition-transform active:scale-95 shadow-sm">
-                    <i class="ph-bold ph-plus"></i> Nova OS
-                </button>
+                <div class="flex items-center gap-3">
+                    <!-- Filtro de Ciclo Mensal -->
+                    <div class="flex items-center gap-3 bg-white border border-slate-200 px-4 py-2 rounded-xl shadow-sm shrink-0">
+                        <button onclick="alterarCicloMensal(-1)" class="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded-lg transition-all" title="Mês Anterior">
+                            <i class="ph-bold ph-caret-left text-lg"></i>
+                        </button>
+                        <span id="nome-ciclo-mensal-os" class="font-semibold text-slate-700 min-w-[140px] text-center text-sm">Carregando...</span>
+                        <button onclick="alterarCicloMensal(1)" class="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded-lg transition-all" title="Próximo Mês">
+                            <i class="ph-bold ph-caret-right text-lg"></i>
+                        </button>
+                    </div>
+                    <button onclick="document.getElementById('modalNovaOS').classList.remove('hidden')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-medium flex items-center gap-2 transition-transform active:scale-95 shadow-sm">
+                        <i class="ph-bold ph-plus"></i> Nova OS
+                    </button>
+                </div>
             </div>
-            
+
+            <!-- Cards de Resumo do Mês -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-5 shrink-0">
+                <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100/60 flex items-center gap-4">
+                    <div class="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center shrink-0">
+                        <i class="ph-fill ph-clipboard-text text-slate-500 text-xl"></i>
+                    </div>
+                    <div>
+                        <p class="text-slate-400 text-xs font-semibold">Abertas no Mês</p>
+                        <p class="text-2xl font-bold text-slate-800" id="os-stat-recebido">0</p>
+                    </div>
+                </div>
+                <div class="bg-white rounded-2xl p-4 shadow-sm border border-indigo-100/60 flex items-center gap-4">
+                    <div class="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center shrink-0">
+                        <i class="ph-fill ph-wrench text-indigo-500 text-xl"></i>
+                    </div>
+                    <div>
+                        <p class="text-indigo-400 text-xs font-semibold">Na Bancada</p>
+                        <p class="text-2xl font-bold text-indigo-700" id="os-stat-andamento">0</p>
+                    </div>
+                </div>
+                <div class="bg-white rounded-2xl p-4 shadow-sm border border-emerald-100/60 flex items-center gap-4">
+                    <div class="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
+                        <i class="ph-fill ph-check-circle text-emerald-500 text-xl"></i>
+                    </div>
+                    <div>
+                        <p class="text-emerald-500 text-xs font-semibold">Concluídas no Mês</p>
+                        <p class="text-2xl font-bold text-emerald-700" id="os-stat-concluido">0</p>
+                    </div>
+                </div>
+                <div class="bg-white rounded-2xl p-4 shadow-sm border border-amber-100/60 flex items-center gap-4">
+                    <div class="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center shrink-0">
+                        <i class="ph-fill ph-money text-amber-500 text-xl"></i>
+                    </div>
+                    <div>
+                        <p class="text-amber-500 text-xs font-semibold">Faturado no Mês</p>
+                        <p class="text-xl font-bold text-amber-700" id="os-stat-faturado">R$ 0,00</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Info de OSs Ativas -->
+            <div class="mb-4 shrink-0">
+                <p class="text-xs text-slate-400 flex items-center gap-1.5">
+                    <i class="ph-fill ph-info text-indigo-400"></i>
+                    OS em aberto e na bancada aparecem <strong>sempre</strong>, independente do mês selecionado.
+                </p>
+            </div>
+
             <div class="flex-1 flex gap-6 overflow-x-auto pb-4 items-stretch">
                 <!-- Col 1: Em Aberto -->
                 <div class="flex-1 min-w-[340px] max-w-[400px] bg-slate-200/40 rounded-2xl flex flex-col max-h-full border border-slate-200/60 overflow-hidden">
@@ -395,6 +464,88 @@
             </div>
         </section>
 
+        <!-- VIEW: ESTOQUE -->
+        <section id="estoque-view" class="tab-content flex-col h-full overflow-y-auto p-6 md:p-10">
+            <div class="flex justify-between items-center mb-8 shrink-0">
+                <div>
+                    <h1 class="text-3xl font-bold text-slate-800">Estoque de Peças</h1>
+                    <p class="text-slate-500 mt-1 text-sm">Cadastre produtos, peças e acessórios para controle de inventário e cálculo de lucro.</p>
+                </div>
+                <button onclick="document.getElementById('modalNovoProduto').classList.remove('hidden')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-medium flex items-center gap-2 transition-transform active:scale-95 shadow-sm">
+                    <i class="ph-bold ph-plus"></i> Novo Produto
+                </button>
+            </div>
+            <!-- Cards de Resumo -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8 shrink-0">
+                <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100/60">
+                    <p class="text-slate-500 text-sm font-semibold mb-1">Total de Itens (SKUs)</p>
+                    <p class="text-3xl font-bold text-slate-800" id="estoque-total-itens">0</p>
+                </div>
+                <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100/60">
+                    <p class="text-slate-500 text-sm font-semibold mb-1">Valor em Estoque (Custo)</p>
+                    <p class="text-3xl font-bold text-indigo-600" id="estoque-valor-custo">R$ 0,00</p>
+                </div>
+                <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100/60">
+                    <p class="text-slate-500 text-sm font-semibold mb-1">Valor em Estoque (Venda)</p>
+                    <p class="text-3xl font-bold text-emerald-600" id="estoque-valor-venda">R$ 0,00</p>
+                </div>
+            </div>
+            <!-- Tabela de Produtos -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden shrink-0">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm text-slate-600">
+                        <thead class="bg-slate-50 text-slate-500 border-b border-slate-100">
+                            <tr>
+                                <th class="px-6 py-4 font-semibold uppercase tracking-wider text-xs">Produto / Peça</th>
+                                <th class="px-6 py-4 font-semibold uppercase tracking-wider text-xs text-center">Qtd. em Estoque</th>
+                                <th class="px-6 py-4 font-semibold uppercase tracking-wider text-xs text-right">Preço de Custo</th>
+                                <th class="px-6 py-4 font-semibold uppercase tracking-wider text-xs text-right">Preço de Venda</th>
+                                <th class="px-6 py-4 font-semibold uppercase tracking-wider text-xs text-center">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabela-produtos" class="divide-y divide-slate-100">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- VIEW: PDV RÁPIDO -->
+        <section id="pdv-view" class="tab-content flex-col h-full overflow-y-auto p-6 md:p-10">
+            <div class="mb-8 shrink-0">
+                <h1 class="text-3xl font-bold text-slate-800">Venda de Balcão</h1>
+                <p class="text-slate-500 mt-1 text-sm">Registre vendas rápidas de acessórios. O estoque é baixado e o valor entra no caixa automaticamente.</p>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+                <!-- Seletor de produtos -->
+                <div class="lg:col-span-3 bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+                    <h2 class="text-lg font-bold text-slate-700 mb-4">Selecionar Produtos</h2>
+                    <div id="pdv-grid-produtos" class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        <!-- Preenchido via JS -->
+                    </div>
+                </div>
+                <!-- Carrinho -->
+                <div class="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-100 p-6 flex flex-col">
+                    <h2 class="text-lg font-bold text-slate-700 mb-4 flex items-center gap-2"><i class="ph-fill ph-shopping-cart text-indigo-500"></i> Carrinho</h2>
+                    <div id="pdv-carrinho" class="flex-1 space-y-3 min-h-[120px]">
+                        <p class="text-slate-400 text-sm text-center py-8" id="pdv-carrinho-vazio">Nenhum item adicionado</p>
+                    </div>
+                    <div class="border-t border-slate-100 pt-4 mt-4">
+                        <div class="flex justify-between items-center mb-4">
+                            <span class="font-semibold text-slate-600">Total:</span>
+                            <span class="text-2xl font-bold text-emerald-600" id="pdv-total">R$ 0,00</span>
+                        </div>
+                        <button id="btnFinalizarVenda" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-bold transition-transform active:scale-95">
+                            <i class="ph-bold ph-check-circle"></i> Finalizar Venda
+                        </button>
+                        <button id="btnLimparCarrinho" class="w-full mt-2 text-slate-500 hover:text-rose-600 py-2 rounded-xl font-medium transition-colors text-sm">
+                            Limpar carrinho
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
     </main>
 
     <!-- ================= MODAIS ================= -->
@@ -435,6 +586,31 @@
                 <div>
                     <label class="block text-sm font-semibold text-slate-700 mb-1.5">Defeito Relatado</label>
                     <textarea id="osProb" rows="3" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 resize-none"></textarea>
+                </div>
+                <!-- Checklist Dinâmico e Customizável de Inspeção Visual -->
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1.5 flex justify-between items-center">
+                        <span>📋 Inspeção Visual de Entrada</span>
+                        <span class="text-xs font-normal text-slate-400">Clique nas avarias ou adicione personalizadas</span>
+                    </label>
+                    
+                    <!-- Chips Sugeridos Dinâmicos por Categoria -->
+                    <div id="checklist-chips-sugeridos" class="flex flex-wrap gap-1.5 mb-3">
+                        <!-- Preenchido via JS baseado na Categoria -->
+                    </div>
+
+                    <!-- Input para Avaria Personalizada -->
+                    <div class="flex gap-2 mb-3">
+                        <input type="text" id="inputCustomAvaria" placeholder="Ex: Sem fonte, tampa trincada, faltam parafusos..." class="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30">
+                        <button type="button" id="btnAddCustomAvaria" class="bg-slate-800 hover:bg-slate-900 text-white px-3 py-2 rounded-xl text-sm font-medium transition-colors shrink-0 flex items-center gap-1">
+                            <i class="ph-bold ph-plus text-xs"></i> Adicionar
+                        </button>
+                    </div>
+
+                    <!-- Avarias Selecionadas -->
+                    <div id="checklist-selecionados" class="flex flex-wrap gap-1.5 min-h-[38px] p-2 bg-slate-50 border border-slate-200 rounded-xl">
+                        <span class="text-xs text-slate-400 self-center px-1" id="checklist-vazio-msg">Nenhuma avaria apontada</span>
+                    </div>
                 </div>
             </div>
             <div class="px-8 py-5 bg-slate-50 border-t border-slate-100 flex justify-end gap-3 shrink-0">
@@ -567,11 +743,46 @@
         </div>
     </div>
 
+    <!-- Modal: Novo Produto (Estoque) -->
+    <div id="modalNovoProduto" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col">
+            <div class="px-8 py-5 border-b border-slate-100 flex justify-between items-center bg-white shrink-0">
+                <h3 class="font-bold text-xl text-slate-800 flex items-center gap-2"><i class="ph-fill ph-package text-indigo-500"></i> <span id="modalProdutoTitulo">Novo Produto</span></h3>
+                <button onclick="document.getElementById('modalNovoProduto').classList.add('hidden')" class="w-8 h-8 flex items-center justify-center bg-slate-100 text-slate-500 hover:bg-slate-200 rounded-full transition-colors"><i class="ph-bold ph-x"></i></button>
+            </div>
+            <div class="p-8 space-y-5">
+                <input type="hidden" id="produtoEditandoId">
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1.5">Nome do Produto *</label>
+                    <input type="text" id="inputProdutoNome" placeholder="Ex: Tela iPhone 12, Bateria Samsung A51" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/30">
+                </div>
+                <div class="grid grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1.5">Qtd. Inicial</label>
+                        <input type="number" id="inputProdutoQtd" min="0" value="0" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/30">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1.5">Custo (R$)</label>
+                        <input type="number" step="0.01" id="inputProdutoCusto" placeholder="0,00" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/30">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1.5">Venda (R$)</label>
+                        <input type="number" step="0.01" id="inputProdutoVenda" placeholder="0,00" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/30">
+                    </div>
+                </div>
+            </div>
+            <div class="px-8 py-5 bg-slate-50 border-t border-slate-100 flex justify-end gap-3 shrink-0">
+                <button onclick="document.getElementById('modalNovoProduto').classList.add('hidden')" class="px-5 py-2.5 font-semibold text-slate-600 hover:bg-slate-200 rounded-xl transition-colors">Cancelar</button>
+                <button id="btnSalvarProduto" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-transform active:scale-95 shadow-sm">Salvar</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal: Imprimir (Renderiza estilos invisiveis até chamar window.print) -->
     <div id="printArea" class="hidden absolute top-0 left-0 w-full bg-white text-black p-8 text-sm h-screen overflow-auto">
         <!-- Renderizado via JS -->
     </div>
 
-    <script src="script.js"></script>
+    <script type="module" src="js/app.js"></script>
 </body>
 </html>

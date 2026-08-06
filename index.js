@@ -8,6 +8,7 @@ const Logger = require('./src/Logger');
 const Database = require('./src/Database');
 const ApiServer = require('./src/ApiServer');
 const WhatsAppBot = require('./src/WhatsAppBot');
+const TunnelManager = require('./src/TunnelManager');
 
 /**
  * Ponto de entrada da aplicação. Chamado pelo main.js do Electron.
@@ -33,6 +34,11 @@ module.exports = async function startApp(mainWindow) {
     // 4. ApiServer — Express: todas as rotas REST
     const api = new ApiServer(db, logger, notificarUI);
     api.iniciar(3000);
+
+    // 4.1 TunnelManager — Expõe o local via Ngrok
+    const tunnel = new TunnelManager(db, logger, notificarUI);
+    // Inicializa em background (não trava o boot)
+    tunnel.inicializar(3000).catch(e => console.error("Ngrok Init falhou:", e));
 
     // 5. WhatsAppBot — Conexão, QR, máquina de estados do menu
     const bot = new WhatsAppBot(appDataPath, db, logger, notificarUI, mainWindow, api.getUserStages());

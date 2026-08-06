@@ -283,7 +283,12 @@ class WhatsAppBot {
                     await enviarMensagem(await db.getMsgConfig('msg_erro_os_nao_encontrada', { os_id: osId }));
                 } else {
                     const statusHuman = os.status === 'recebido' ? '🟡 Na fila (Recebido)' : os.status === 'em_andamento' ? '🔨 Em Manutenção (Bancada)' : '✅ Concluído (Pronto para retirada)';
-                    await enviarMensagem(await db.getMsgConfig('msg_os_status', { os_id: os.id, equipamento: os.equipamento, status: statusHuman }));
+                    let resp = await db.getMsgConfig('msg_os_status', { os_id: os.id, equipamento: os.equipamento, status: statusHuman });
+                    const urlTunnel = await db.getTunnelUrl();
+                    if (urlTunnel) {
+                        resp += `\n\n🌐 *Acompanhe em tempo real e veja seu recibo aqui:*\n${urlTunnel}/publico/os/${os.id}`;
+                    }
+                    await enviarMensagem(resp);
                     uState.stage = 'MENU';
                 }
                 return;
@@ -298,6 +303,53 @@ class WhatsAppBot {
             this._userStages[user] = { stage: 'MENU', ultimaInteracao: Date.now() };
         }
         return this._userStages[user];
+    }
+
+    // =====================================================================
+    // DISPARO PROATIVO DE MENSAGENS (Notificações)
+    // =====================================================================
+
+    async enviarNotificacaoOS(telefone, osId, tipo) {
+        if (!this._botIsReady || !this._client) return;
+        try {
+            // Formatar telefone para o padrão WhatsApp BR
+            let numero = telefone.replace(/\D/g, '');
+            if (!numero) return;
+            if (!numero.startsWith('55')) numero = `55${numero}`;
+            if (numero.length === 12) numero = `${numero.substring(0, 4)}9${numero.substring(4)}`; // adiciona o 9
+
+            const wid = `${numero}@c.us`;
+            
+            const os = await this._db.get("SELECT * FROM ordens_servico WHERE id = ?", [osId]);
+            if (!os) return;
+
+            let msg = '';
+            if (tipo === 'criada') {
+                msg = `Olá ${os.cliente_nome}! Sua Ordem de Serviço *#${os.id}* (${os.equipamento}) foi registrada na nossa assistência. 🛠️`;
+            } else if (tipo === 'em_andamento') {
+                msg = `Boas notícias, ${os.cliente_nome}! Seu aparelho *#${os.id}* acabou de ir para a bancada e está em manutenção. 🔨`;
+            } else if (tipo === 'concluido') {
+                msg = `Olá ${os.cliente_nome}! O serviço no seu aparelho *#${os.id}* foi concluído! ✅ Já pode vir retirar.`;
+            }
+
+            const urlTunnel = await this._db.getTunnelUrl();
+            if (urlTunnel) {
+                msg += `\n\n🌐 *Acompanhe os detalhes em tempo real:*\n${urlTunnel}/publico/os/${os.id}`;
+            }
+
+            await this._client.sendMessage(wid, msg);
+            this._logger.log('BOT', `Notificação '${tipo}' enviada ativamente para ${wid}`);
+            
+            // Coloca o cliente no estado 'RECEM_NOTIFICADO' para evitar que o bot mostre o menu se ele só mandar "ok"
+            if (!this._userStages[wid]) this._userStages[wid] = { stage: 'RECEM_NOTIFICADO', ultimaInteracao: Date.now() };
+            else {
+                this._userStages[wid].stage = 'RECEM_NOTIFICADO';
+                this._userStages[wid].ultimaInteracao = Date.now();
+            }
+
+        } catch (e) {
+            this._logger.logErro('BOT', e);
+        }
     }
 
     // =====================================================================
