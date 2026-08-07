@@ -1,5 +1,3 @@
-const { startTunnel } = require('untun');
-
 /**
  * Gerencia o túnel reverso usando o Cloudflare Tunnels (untun) para expor a porta local para a internet sem telas de aviso.
  */
@@ -17,6 +15,9 @@ class TunnelManager {
             this._notificarUI('bot', 'Iniciando túnel público...');
             this._logger.log('TUNNEL', 'Conectando ao Cloudflare Tunnel (Sem telas de aviso)...');
             
+            // Dynamic import para compatibilidade de módulos ES (untun) no CommonJS
+            const { startTunnel } = await import('untun');
+
             this._tunnel = await startTunnel({ port });
             this._url = await this._tunnel.getURL();
 
