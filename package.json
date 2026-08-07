@@ -48,7 +48,6 @@
     },
     "files": [
       "**/*",
-      "!src/**",
       "!scripts/**",
       "!.build-tmp/**",
       "!node_modules/electron",

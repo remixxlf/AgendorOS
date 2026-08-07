@@ -31,6 +31,7 @@ const BACKEND_FILES = [
     path.join('src', 'Database.js'),
     path.join('src', 'ApiServer.js'),
     path.join('src', 'WhatsAppBot.js'),
+    path.join('src', 'TunnelManager.js'),
 ];
 
 /**
@@ -166,14 +167,24 @@ async function main() {
         log(`  [OK] Ofuscado: ${relPath}`);
     }
 
-    // Ofuscação do frontend
-    log('CAMADA 1: Ofuscando frontend (public/script.js)...');
-    const frontendPath = path.join(BUILD_TMP, FRONTEND_FILE);
-    if (fs.existsSync(frontendPath)) {
-        const src = fs.readFileSync(frontendPath, 'utf8');
-        const result = JavaScriptObfuscator.obfuscate(src, OBFUSCATOR_CONFIG_FRONTEND);
-        fs.writeFileSync(frontendPath, result.getObfuscatedCode(), 'utf8');
-        log(`  [OK] Ofuscado: ${FRONTEND_FILE}`);
+    // Ofuscação do frontend (módulos ES em public/js)
+    log('CAMADA 1: Ofuscando frontend (public/js/*.js)...');
+    const jsDir = path.join(BUILD_TMP, 'public', 'js');
+    if (fs.existsSync(jsDir)) {
+        const frontendConfig = { ...OBFUSCATOR_CONFIG_FRONTEND, sourceType: 'module' };
+        for (const file of fs.readdirSync(jsDir)) {
+            if (file.endsWith('.js')) {
+                const fullPath = path.join(jsDir, file);
+                const src = fs.readFileSync(fullPath, 'utf8');
+                try {
+                    const result = JavaScriptObfuscator.obfuscate(src, frontendConfig);
+                    fs.writeFileSync(fullPath, result.getObfuscatedCode(), 'utf8');
+                    log(`  [OK] Ofuscado: public/js/${file}`);
+                } catch(e) {
+                    log(`  [AVISO] Não foi possível ofuscar public/js/${file}: ${e.message}`);
+                }
+            }
+        }
     }
 
     // ── Passo 3: CAMADA 2 — Compilação V8 Bytecode (bytenode) ─────────────────
